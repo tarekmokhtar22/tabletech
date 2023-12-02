@@ -227,8 +227,6 @@
         #app-section.read-only #reset-btn,
         #app-section.read-only #load-btn,
         #app-section.read-only #show-conflicts-btn,
-        #app-section.read-only #export-btn,
-        #app-section.read-only #print-btn,
         #app-section.read-only #refresh-btn {
             display: none !important;
         }
@@ -242,6 +240,13 @@
             opacity: 0 !important;
         }
 
+        /* Styles for specific class guest mode */
+        #app-section.class-guest-only #locations-view-btn,
+        #app-section.class-guest-only #filter-members-btn,
+        #app-section.class-guest-only #export-report-btn,
+        #app-section.class-guest-only #save-backup-btn {
+            display: none !important;
+        }
 
         @media print {
             body * { visibility: hidden; }
@@ -703,7 +708,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, getDoc, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let userRole = localStorage.getItem('userRole'); // 'admin' or 'guest'
+        let userRole = localStorage.getItem('userRole'); // 'admin', 'guest', or 'class_guest'
 
         const loginSection = document.getElementById('login-section');
         const appSection = document.getElementById('app-section');
@@ -725,8 +730,11 @@
         function showApp() {
             loginSection.classList.add('hidden');
             appSection.classList.remove('hidden');
-            if (userRole === 'guest') {
+            if (userRole === 'guest' || userRole === 'class_guest') {
                 appSection.classList.add('read-only');
+            }
+            if (userRole === 'class_guest') {
+                appSection.classList.add('class-guest-only');
             }
             initializeMainApp(); 
         }
@@ -760,7 +768,10 @@
 				if (enteredPassword === '0000') {
                     userRole = 'guest';
 					isLoginSuccessful = true;
-				} else {
+				} else if (enteredPassword === 'Class') {
+                    userRole = 'class_guest';
+                    isLoginSuccessful = true;
+                } else {
 					errorMessage.textContent = 'كلمة سر الضيف غير صحيحة.';
 				}
 			} else {
@@ -1158,7 +1169,7 @@
         }
 
         window.deleteItem = async (type, id) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const itemMap = { level: {data: levels, col: levelsCol}, group: {data: groups, col: groupsCol}, subject: {data: subjects, col: subjectsCol}, instructor: {data: instructors, col: instructorsCol}, location: {data: locations, col: locationsCol}, course: {data: courses, col: coursesCol} };
             const itemToDelete = itemMap[type].data.find(i => i.id === id);
             if(!itemToDelete) return;
@@ -1309,7 +1320,7 @@
         window.showMainView = showMainView;
 
         window.showAdvancedLevelsView = () => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             dom.mainContent.classList.add('hidden');
             dom.advancedInstructorsView.classList.add('hidden');
             dom.advancedLevelsView.classList.remove('hidden');
@@ -1325,7 +1336,7 @@
         }
         
         window.showAdvancedInstructorsView = () => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             dom.mainContent.classList.add('hidden');
             dom.advancedLevelsView.classList.add('hidden');
             dom.advancedInstructorsView.classList.remove('hidden');
@@ -1761,7 +1772,7 @@
         // ------------------------------------------------
 
         function createControlButtons(type, id) { 
-            if (userRole === 'guest') return '';
+            if (userRole !== 'admin') return '';
             return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; 
         }
         function renderSubjects() {
@@ -1876,7 +1887,7 @@
         }
 
         function openLocationEditModal(id) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const location = locations.find(l => l.id === id);
             if (!location) return;
             const modal = dom.locationEditModal;
@@ -1891,7 +1902,7 @@
         }
 
         window.openEditModal = (type, id) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             if (type === 'location') {
                 return openLocationEditModal(id);
             }
@@ -1903,12 +1914,12 @@
             dom.editModalSaveBtn.onclick = () => handleUpdateItem(type, id, dom.editModalInput.value.trim());
         };
         window.handleSubjectColorChange = async (id, color) => { 
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const subjectRef = doc(db, subjectsCol.path, id); await updateDoc(subjectRef, { color: color }); 
         };
         
         async function handleUpdateItem(type, id, newName, options = {}) {
-            if (userRole === 'guest' || !newName) return;
+            if (userRole !== 'admin' || !newName) return;
             const collectionInfo = { level: {col: levelsCol }, group: {col: groupsCol}, subject: {col: subjectsCol }, instructor: {col: instructorsCol }, location: {col: locationsCol } }[type];
             const item = { level: levels, group: groups, subject: subjects, instructor: instructors, location: locations }[type].find(i => i.id === id);
             const oldName = item.name;
@@ -1991,7 +2002,7 @@
             showToast("تم التعديل بنجاح!");
         }
         window.openAvailabilityModal = (id) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const instructor = instructors.find(i => i.id === id); if(!instructor) return;
             dom.availabilityModalTitle.textContent = `تحديد أوقات التفرغ لـ ${instructor.name}`; let gridHtml = '';
             DAYS.forEach(day => { gridHtml += `<div class="grid grid-cols-6 gap-2 items-center"><label class="font-bold col-span-1">${day}</label><div class="col-span-5 flex flex-wrap gap-1">`; TIME_SLOTS_HOURLY.forEach(time => { const isChecked = ((instructor.availableTimes || {})[day] || []).includes(time); gridHtml += `<label class="flex items-center space-x-1 p-1 border rounded-md"><input type="checkbox" data-day="${day}" data-time="${time}" ${isChecked ? 'checked' : ''} class="form-checkbox h-4 w-4"><span class="text-xs">${formatTimeSlot(time)}</span></label>`; }); gridHtml += `</div></div>`; });
@@ -2000,7 +2011,7 @@
             dom.availabilityModalSaveBtn.onclick = () => handleSaveAvailability(id);
         };
         async function handleSaveAvailability(id) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const instructorRef = doc(db, instructorsCol.path, id); const newAvailableTimes = {};
             const checkboxes = dom.availabilityGrid.querySelectorAll('input[type="checkbox"]:checked');
             checkboxes.forEach(cb => { const day = cb.dataset.day; const time = parseInt(cb.dataset.time); if (!newAvailableTimes[day]) newAvailableTimes[day] = []; newAvailableTimes[day].push(time); });
@@ -2015,7 +2026,7 @@
             });
         }
         window.openScheduleItemModal = (courseId, day, time, locationName, levelOverride = null) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const courseDataFromGrid = savedSchedules[levelOverride || dom.levelFilterSelect.value]?.[day]?.[time]?.[locationName];
             if (!courseDataFromGrid) return;
 
@@ -2240,7 +2251,7 @@
 
 
         window.openCustomActivityModal = (instructorId, day, time, activityId = null) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const instructor = instructors.find(i => i.id === instructorId);
             if (!instructor) return;
 
@@ -2479,7 +2490,7 @@
         }
         
         async function allowConflict(conflictId) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             ignoredConflicts.add(conflictId);
             const settingsDocRef = doc(settingsCol, 'app_config');
             try {
@@ -3142,7 +3153,7 @@
         }
 
         async function handleReset(force = false) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const batch = writeBatch(db);
             
             const deleteCollection = async (colRef) => {
@@ -3228,7 +3239,7 @@
         }
         
         window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null, levelOverride = null) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const level = levelOverride || dom.levelFilterSelect.value;
             if (!level || level === 'all') {
                 showToast('يرجى تحديد فرقة أولاً.', 'error');
@@ -3381,7 +3392,7 @@
         }
 
         window.openLocationActivityModal = (locationName, day, time) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
 
             const modal = dom.locationActivityModal;
             modal.title.textContent = `إضافة نشاط في: ${locationName} - ${day} الساعة ${formatTimeSlot(time)}`;
