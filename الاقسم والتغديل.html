@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الجداول الرائع جداً (نسخة مطورة)</title>
+    <title>الجداول الرائع جداً (نسخة الأقسام المطورة)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -218,6 +218,7 @@
         table, .schedule-item { user-select: text; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; }
 
         /* Read-only styles for guest mode */
+        #app-section.read-only #departments-controls,
         #app-section.read-only #top-controls,
         #app-section.read-only form,
         #app-section.read-only .control-buttons,
@@ -226,8 +227,6 @@
         #app-section.read-only #reset-btn,
         #app-section.read-only #load-btn,
         #app-section.read-only #show-conflicts-btn,
-        #app-section.read-only #export-btn,
-        #app-section.read-only #print-btn,
         #app-section.read-only #refresh-btn {
             display: none !important;
         }
@@ -241,6 +240,13 @@
             opacity: 0 !important;
         }
 
+        /* Styles for specific class guest mode */
+        #app-section.class-guest-only #locations-view-btn,
+        #app-section.class-guest-only #filter-members-btn,
+        #app-section.class-guest-only #export-report-btn,
+        #app-section.class-guest-only #save-backup-btn {
+            display: none !important;
+        }
 
         @media print {
             body * { visibility: hidden; }
@@ -249,7 +255,7 @@
             .schedule-item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             h2, h3 { text-align: center; margin-bottom: 20px; }
             #members-view-sidebar { display: none; }
-            .conflict-badge, .control-buttons, .print-hidden, footer, #top-controls, .copy-btn { display: none; }
+            .conflict-badge, .control-buttons, .print-hidden, footer, #top-controls, .copy-btn, #departments-panel { display: none; }
         }
     </style>
 </head>
@@ -311,159 +317,191 @@
             <div id="loading-indicator" class="text-center p-8"> <i class="fas fa-spinner fa-spin fa-3x text-sky-500"></i> <p class="mt-4 text-gray-600">جاري تحميل البيانات...</p> </div>
     
             <div id="main-content" class="hidden">
-                <!-- New Top Controls Panel -->
-                <div id="top-controls" class="bg-white p-4 rounded-xl shadow-md mb-8 print-hidden">
-                    <details class="group">
-                        <summary class="flex justify-between items-center font-medium cursor-pointer">
-                            <h2 class="text-xl font-bold text-gray-600">إدارة البيانات الأساسية والإعدادات</h2>
-                            <span class="transition-transform duration-300 group-open:rotate-180">
-                                <i class="fas fa-chevron-down"></i>
-                            </span>
-                        </summary>
-                        <div class="text-neutral-600 mt-4 pt-4 border-t">
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                
-                                <div class="space-y-4 bg-gray-50 p-4 rounded-lg border">
-                                    <div>
-                                        <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
-                                            <span>1. الفرق الدراسية</span>
-                                            <a href="#" onclick="window.showAdvancedLevelsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
-                                        </h3>
-                                        <form id="level-form" class="flex gap-2 mt-2">
-                                            <input type="text" id="level-name" placeholder="اسم الفرقة" class="w-full p-2 border rounded-md" required>
-                                            <button type="submit" class="bg-green-500 text-white font-bold p-2 px-4 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                        </form>
-                                        <div id="levels-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
-                                        <form id="group-form" class="space-y-2 mt-2">
-                                            <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
-                                            <div class="flex gap-2">
-                                                <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
-                                                <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                            </div>
-                                        </form>
-                                        <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                                    </div>
-                                </div>
-    
-                                <div class="bg-gray-50 p-4 rounded-lg border">
-                                    <h3 class="text-lg font-bold text-gray-600">3. المواد الدراسية</h3>
-                                    <form id="subject-form" class="space-y-2 mt-2">
-                                        <select id="subject-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
-                                        <div class="flex gap-2">
-                                            <input type="text" id="subject-name" placeholder="اسم المادة" class="w-full p-2 border rounded-md" required>
-                                            <button type="submit" class="bg-purple-500 text-white font-bold p-2 px-4 rounded-md hover:bg-purple-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                        </div>
-                                    </form>
-                                    <div id="subjects-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
-                                </div>
-    
-                                <div class="bg-gray-50 p-4 rounded-lg border">
-                                     <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
-                                        <span>4. الأعضاء</span>
-                                        <a href="#" onclick="window.showAdvancedInstructorsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
-                                    </h3>
-                                    <form id="instructor-form" class="space-y-2 mt-2">
-                                        <input type="text" id="instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md" required>
-                                        <select id="instructor-category-select" class="w-full p-2 border rounded-md">
-                                            <option value="عضو هيئة تدريس">عضو هيئة تدريس</option> <option value="معاونون">معاونون</option> <option value="منتدبون">منتدبون</option> <option value="اعضاء من الخارج">اعضاء من الخارج</option>
-                                        </select>
-                                        <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 flex items-center justify-center">إضافة عضو</button>
-                                    </form>
-                                    <div id="instructors-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
-                                </div>
-                                
-                                <div class="bg-gray-50 p-4 rounded-lg border">
-                                    <h3 class="text-lg font-bold text-gray-600">5. الأماكن</h3>
-                                    <form id="location-form" class="space-y-2 mt-2">
-                                        <input type="text" id="location-name" placeholder="اسم المكان" class="w-full p-2 border rounded-md" required>
-                                        <select id="location-type" class="w-full p-2 border rounded-md">
-                                            <option value="قاعة">قاعة</option> <option value="معمل">معمل</option> <option value="مدرج">مدرج</option>
-                                        </select>
-                                        <button type="submit" class="w-full bg-cyan-500 text-white font-bold py-2 rounded-md hover:bg-cyan-600 flex items-center justify-center">إضافة المكان</button>
-                                    </form>
-                                    <div id="locations-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                                </div>
-    
+                
+                <!-- NEW: Departments Panel -->
+                <div id="departments-panel" class="bg-white p-6 rounded-xl shadow-md mb-8 border-2 border-indigo-400 print-hidden">
+                    <h2 class="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-building"></i> إدارة الأقسام (تحديد بيئة العمل)
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                        <div class="space-y-2">
+                            <label class="font-bold text-sm text-gray-600">اختر القسم للعمل عليه:</label>
+                            <div class="flex gap-2">
+                                <select id="department-select" class="flex-grow p-3 border-2 border-indigo-200 rounded-md font-bold text-indigo-700 bg-indigo-50 focus:ring-2 focus:ring-indigo-500 transition-all outline-none">
+                                    <option value="">جاري التحميل...</option>
+                                </select>
+                                <button id="edit-dept-btn" class="hidden bg-white text-blue-500 border border-blue-200 hover:bg-blue-50 font-bold px-4 py-3 rounded-md flex items-center justify-center transition-transform hover:scale-105 shadow-sm" title="تعديل اسم القسم"><i class="fas fa-pencil-alt"></i></button>
+                                <button id="delete-dept-btn" class="hidden bg-white text-red-500 border border-red-200 hover:bg-red-50 font-bold px-4 py-3 rounded-md flex items-center justify-center transition-transform hover:scale-105 shadow-sm" title="حذف القسم"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
-                    </details>
-                </div>
-                
-                <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
-                    <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
-                    <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
-                    <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
-                    <button id="export-report-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-invoice mr-2"></i>تصدير تقرير (HTML)</button>
-                    <button id="save-backup-btn" class="bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-save mr-2"></i>حفظ نسخة احتياطية (JSON)</button>
-                    <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
-                    <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
-                    <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
-                    <button id="reset-btn" class="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-trash-alt mr-2"></i>جديد</button>
-                    <input type="file" id="file-loader" class="hidden" accept=".json">
-                </div>
-                
-                <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex items-center gap-4">
-                    <label for="level-filter-select" class="font-bold text-gray-600">عرض جدول:</label>
-                    <select id="level-filter-select" class="w-full p-2 border rounded-md text-xl font-bold"></select>
-                </div>
-                
-                <div id="summary-table-container" class="my-6"></div>
-                <div id="unscheduled-output" class="my-6"></div>
-                <div id="conflict-output" class="my-6"></div>
-    
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 space-y-6">
-                        <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-600">إضافة محاضرة / سكشن</h2>
-                            <form id="course-form" class="space-y-4">
-                                <select id="course-name-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة الرئيسية أولاً...</option></select>
-                                <select id="instructor-select" class="w-full p-2 border rounded-md" required><option value="">اختر العضو...</option></select>
-                                <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
-                                <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
-                                
-                                <div id="group-select-container">
-                                    <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
-                                    <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
-                                </div>
-    
-                                <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
-                                <div>
-                                    <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
-                                    <input type="number" id="duration" class="w-full p-2 border rounded-md" min="1" value="2" required>
-                                </div>
-                                <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center">إضافة للجدول</button>
+                        <div class="space-y-2" id="departments-controls">
+                            <label class="font-bold text-sm text-gray-600">إضافة قسم جديد:</label>
+                            <form id="department-form" class="flex gap-2">
+                                <input type="text" id="department-name" placeholder="مثال: قسم تكنولوجيا التعليم" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                                <button type="submit" class="bg-indigo-600 text-white font-bold p-3 px-6 rounded-md hover:bg-indigo-700 flex items-center justify-center transition-transform hover:scale-105 shadow-md">
+                                    <i class="fas fa-plus ml-2"></i> أضف
+                                </button>
                             </form>
                         </div>
-                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <div class="flex justify-between items-center mb-4 pb-2 border-b">
-                                 <h2 class="text-xl font-bold text-gray-600">قائمة المحاضرات والسكاشن</h2>
-                                 <button id="auto-schedule-btn" class="bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 shadow-md transition-transform hover:scale-105 text-sm flex items-center gap-2">
-                                     <i class="fas fa-magic"></i>
-                                     <span>تسكين تلقائي</span>
-                                 </button>
-                             </div>
-                             <div class="flex border-b mb-4">
-                                <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
-                                <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
-                                <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
-                            </div>
-                            <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
-                                <div id="courses-list-all"></div>
-                                <div id="courses-list-lectures" class="hidden"></div>
-                                <div id="courses-list-labs" class="hidden"></div>
-                            </div>
-                        </div>
-                    </div>
-    
-                    <div class="lg:col-span-2">
-                        <div id="schedule-output-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg min-w-full overflow-x-auto h-full">
-                            <div id="schedule-output"></div>
-                        </div>
                     </div>
                 </div>
+
+                <!-- Workspace wrapped to be hidden until a department is selected -->
+                <div id="app-workspace" class="hidden">
+                    <!-- Top Controls Panel -->
+                    <div id="top-controls" class="bg-white p-4 rounded-xl shadow-md mb-8 print-hidden">
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer">
+                                <h2 class="text-xl font-bold text-gray-600">إدارة البيانات الأساسية والإعدادات</h2>
+                                <span class="transition-transform duration-300 group-open:rotate-180">
+                                    <i class="fas fa-chevron-down"></i>
+                                </span>
+                            </summary>
+                            <div class="text-neutral-600 mt-4 pt-4 border-t">
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    
+                                    <div class="space-y-4 bg-gray-50 p-4 rounded-lg border">
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
+                                                <span>1. الفرق الدراسية</span>
+                                                <a href="#" onclick="window.showAdvancedLevelsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
+                                            </h3>
+                                            <form id="level-form" class="flex gap-2 mt-2">
+                                                <input type="text" id="level-name" placeholder="اسم الفرقة" class="w-full p-2 border rounded-md" required>
+                                                <button type="submit" class="bg-green-500 text-white font-bold p-2 px-4 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                            </form>
+                                            <div id="levels-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
+                                            <form id="group-form" class="space-y-2 mt-2">
+                                                <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+                                                <div class="flex gap-2">
+                                                    <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
+                                                    <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                                </div>
+                                            </form>
+                                            <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                        </div>
+                                    </div>
+        
+                                    <div class="bg-gray-50 p-4 rounded-lg border">
+                                        <h3 class="text-lg font-bold text-gray-600">3. المواد الدراسية</h3>
+                                        <form id="subject-form" class="space-y-2 mt-2">
+                                            <select id="subject-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+                                            <div class="flex gap-2">
+                                                <input type="text" id="subject-name" placeholder="اسم المادة" class="w-full p-2 border rounded-md" required>
+                                                <button type="submit" class="bg-purple-500 text-white font-bold p-2 px-4 rounded-md hover:bg-purple-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                            </div>
+                                        </form>
+                                        <div id="subjects-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                                    </div>
+        
+                                    <div class="bg-gray-50 p-4 rounded-lg border">
+                                         <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
+                                            <span>4. الأعضاء</span>
+                                            <a href="#" onclick="window.showAdvancedInstructorsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
+                                        </h3>
+                                        <form id="instructor-form" class="space-y-2 mt-2">
+                                            <input type="text" id="instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md" required>
+                                            <select id="instructor-category-select" class="w-full p-2 border rounded-md">
+                                                <option value="عضو هيئة تدريس">عضو هيئة تدريس</option> <option value="معاونون">معاونون</option> <option value="منتدبون">منتدبون</option> <option value="اعضاء من الخارج">اعضاء من الخارج</option>
+                                            </select>
+                                            <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 flex items-center justify-center">إضافة عضو</button>
+                                        </form>
+                                        <div id="instructors-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                                    </div>
+                                    
+                                    <div class="bg-gray-50 p-4 rounded-lg border">
+                                        <h3 class="text-lg font-bold text-gray-600">5. الأماكن</h3>
+                                        <form id="location-form" class="space-y-2 mt-2">
+                                            <input type="text" id="location-name" placeholder="اسم المكان" class="w-full p-2 border rounded-md" required>
+                                            <select id="location-type" class="w-full p-2 border rounded-md">
+                                                <option value="قاعة">قاعة</option> <option value="معمل">معمل</option> <option value="مدرج">مدرج</option>
+                                            </select>
+                                            <button type="submit" class="w-full bg-cyan-500 text-white font-bold py-2 rounded-md hover:bg-cyan-600 flex items-center justify-center">إضافة المكان</button>
+                                        </form>
+                                        <div id="locations-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                    </div>
+        
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                    
+                    <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
+                        <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
+                        <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
+                        <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
+                        <button id="export-report-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-invoice mr-2"></i>تصدير تقرير (HTML)</button>
+                        <button id="save-backup-btn" class="bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-save mr-2"></i>حفظ نسخة احتياطية (JSON)</button>
+                        <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
+                        <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
+                        <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
+                        <button id="reset-btn" class="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-trash-alt mr-2"></i>جديد (تهيئة القسم الحالي)</button>
+                        <input type="file" id="file-loader" class="hidden" accept=".json">
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex items-center gap-4">
+                        <label for="level-filter-select" class="font-bold text-gray-600">عرض جدول:</label>
+                        <select id="level-filter-select" class="w-full p-2 border rounded-md text-xl font-bold"></select>
+                    </div>
+                    
+                    <div id="summary-table-container" class="my-6"></div>
+                    <div id="unscheduled-output" class="my-6"></div>
+                    <div id="conflict-output" class="my-6"></div>
+        
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1 space-y-6">
+                            <div class="bg-white p-6 rounded-xl shadow-md">
+                                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-600">إضافة محاضرة / سكشن</h2>
+                                <form id="course-form" class="space-y-4">
+                                    <select id="course-name-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة الرئيسية أولاً...</option></select>
+                                    <select id="instructor-select" class="w-full p-2 border rounded-md" required><option value="">اختر العضو...</option></select>
+                                    <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
+                                    <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
+                                    
+                                    <div id="group-select-container">
+                                        <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
+                                        <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
+                                    </div>
+        
+                                    <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
+                                    <div>
+                                        <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
+                                        <input type="number" id="duration" class="w-full p-2 border rounded-md" min="1" value="2" required>
+                                    </div>
+                                    <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center">إضافة للجدول</button>
+                                </form>
+                            </div>
+                             <div class="bg-white p-6 rounded-xl shadow-md">
+                                <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                                     <h2 class="text-xl font-bold text-gray-600">قائمة المحاضرات والسكاشن</h2>
+                                     <button id="auto-schedule-btn" class="bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 shadow-md transition-transform hover:scale-105 text-sm flex items-center gap-2">
+                                         <i class="fas fa-magic"></i>
+                                         <span>تسكين تلقائي</span>
+                                     </button>
+                                 </div>
+                                 <div class="flex border-b mb-4">
+                                    <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
+                                    <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
+                                    <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
+                                </div>
+                                <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
+                                    <div id="courses-list-all"></div>
+                                    <div id="courses-list-lectures" class="hidden"></div>
+                                    <div id="courses-list-labs" class="hidden"></div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <div class="lg:col-span-2">
+                            <div id="schedule-output-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg min-w-full overflow-x-auto h-full">
+                                <div id="schedule-output"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div> <!-- End App Workspace -->
             </div>
     
             <!-- Advanced Views -->
@@ -491,7 +529,7 @@
                 <div id="confirm-modal-details" class="mb-4 text-sm text-gray-600 max-h-40 overflow-y-auto"></div>
                 <div class="flex justify-end gap-4">
                     <button id="confirm-modal-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
-                    <button id="confirm-modal-confirm-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">تأكيد الحذف</button>
+                    <button id="confirm-modal-confirm-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">تأكيد</button>
                 </div>
             </div>
         </div>
@@ -670,7 +708,7 @@
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, getDoc, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let userRole = localStorage.getItem('userRole'); // 'admin' or 'guest'
+        let userRole = localStorage.getItem('userRole'); // 'admin', 'guest', or 'class_guest'
 
         const loginSection = document.getElementById('login-section');
         const appSection = document.getElementById('app-section');
@@ -692,8 +730,11 @@
         function showApp() {
             loginSection.classList.add('hidden');
             appSection.classList.remove('hidden');
-            if (userRole === 'guest') {
+            if (userRole === 'guest' || userRole === 'class_guest') {
                 appSection.classList.add('read-only');
+            }
+            if (userRole === 'class_guest') {
+                appSection.classList.add('class-guest-only');
             }
             initializeMainApp(); 
         }
@@ -727,13 +768,37 @@
 				if (enteredPassword === '0000') {
                     userRole = 'guest';
 					isLoginSuccessful = true;
-				} else {
+				} else if (enteredPassword === 'Class') {
+                    userRole = 'class_guest';
+                    isLoginSuccessful = true;
+                } else {
 					errorMessage.textContent = 'كلمة سر الضيف غير صحيحة.';
 				}
 			} else {
-				const enteredUsername = usernameInput.value;
-				if (enteredUsername.toLowerCase() === 'tarek' && enteredPassword === '150150') {
-                    userRole = 'admin';
+				const enteredUsername = usernameInput.value.toLowerCase();
+				
+				// قائمة المديرين مع تحديد نوع الصلاحية واسم القسم
+				const adminUsers = {
+					'tarek': { pass: '150150', type: 'super_admin' }, 
+					'noha': { pass: '1983', type: 'dept_admin', departmentName: 'قسم تكنولوجيا التعليم' },
+					'ecm': { pass: 'ecm123', type: 'dept_admin', departmentName: 'قسم الإقتصاد المنزلي' },
+					'hasan': { pass: 's456', type: 'dept_admin', departmentName: 'قسم الإعلام التربوي' },
+					'muhanad': { pass: 'a789', type: 'dept_admin', departmentName: 'قسم التربية الموسيقية' }
+				};
+
+				const userConfig = adminUsers[enteredUsername];
+
+				if (userConfig && userConfig.pass === enteredPassword) {
+					userRole = 'admin';
+					localStorage.setItem('userRole', 'admin');
+					localStorage.setItem('userType', userConfig.type); // حفظ نوع المدير
+					
+					if (userConfig.type === 'dept_admin') {
+						localStorage.setItem('userDept', userConfig.departmentName); // حفظ اسم القسم
+					} else {
+						localStorage.removeItem('userDept');
+					}
+					
 					isLoginSuccessful = true;
 				} else {
 					errorMessage.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
@@ -754,6 +819,14 @@
 		});
         
         // --- MAIN APP LOGIC ---
+        let db, auth, userId;
+        // Variables supporting multi-tenancy (Departments)
+        let mainDepartmentsCol, levelsCol, groupsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, settingsCol;
+        let departments = [];
+        let currentDepartmentId = null;
+        let activeUnsubscribes = []; // To kill listeners on department switch
+        const appId = 'tabletech-app';
+
         let subjects = [], instructors = [], locations = [], courses = [], levels = [], groups = [];
         let courseColors = {}, scheduleGrid = {};
         let savedSchedules = {};
@@ -761,6 +834,7 @@
         let showConflicts = true;
         let ignoredConflicts = new Set();
         let dropContext = null;
+        let draggedItem = null;
         
         const DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
         const TIME_SLOTS_HOURLY = Array.from({ length: 10 }, (_, i) => i + 8); 
@@ -769,6 +843,11 @@
         
         const dom = {
             mainContent: document.getElementById('main-content'),
+            appWorkspace: document.getElementById('app-workspace'),
+            departmentSelect: document.getElementById('department-select'),
+            departmentForm: document.getElementById('department-form'),
+            editDeptBtn: document.getElementById('edit-dept-btn'),
+            deleteDeptBtn: document.getElementById('delete-dept-btn'),
             advancedLevelsView: document.getElementById('advanced-levels-view'),
             advancedInstructorsView: document.getElementById('advanced-instructors-view'),
             customViewsContainer: document.getElementById('custom-views-container'),
@@ -876,10 +955,6 @@
                 labs: document.getElementById('filter-labs-btn')
             }
         };
-        
-        let db, auth, userId;
-        let subjectsCol, instructorsCol, locationsCol, coursesCol, levelsCol, schedulesCol, groupsCol, settingsCol;
-        let draggedItem = null;
 
         async function initializeMainApp() {
             try {
@@ -893,7 +968,6 @@
                   measurementId: "G-BG0TQQF429"
                 };
 
-                const appId = 'tabletech-app';
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -902,15 +976,12 @@
                     if (user) {
                         userId = user.uid;
                         const basePath = `artifacts/${appId}/public/data`;
-                        levelsCol = collection(db, basePath, 'levels');
-                        groupsCol = collection(db, basePath, 'groups');
-                        subjectsCol = collection(db, basePath, 'subjects');
-                        instructorsCol = collection(db, basePath, 'instructors');
-                        locationsCol = collection(db, basePath, 'locations');
-                        coursesCol = collection(db, basePath, 'courses');
-                        schedulesCol = collection(db, basePath, 'schedules');
-                        settingsCol = collection(db, basePath, 'settings');
-                        setupRealtimeListeners();
+                        mainDepartmentsCol = collection(db, basePath, 'main_departments');
+                        
+                        dom.loadingIndicator.style.display = 'none';
+                        dom.mainContent.classList.remove('hidden');
+                        
+                        setupDepartmentsListener(); // First layer: listen to departments
                     } else {
                         signInAnonymously(auth).catch(error => {
                             console.error("Anonymous Sign-In Error:", error);
@@ -924,6 +995,127 @@
             }
             setupEventListeners();
         }
+
+        // --- NEW: Departments Logic ---
+function updateDepartmentButtons() {
+            const userType = localStorage.getItem('userType');
+            // السماح بتعديل وحذف الأقسام للمدير العام فقط
+            if (userRole === 'admin' && currentDepartmentId && userType === 'super_admin') {
+                dom.editDeptBtn.classList.remove('hidden');
+                dom.deleteDeptBtn.classList.remove('hidden');
+            } else {
+                dom.editDeptBtn.classList.add('hidden');
+                dom.deleteDeptBtn.classList.add('hidden');
+            }
+        }
+       function setupDepartmentsListener() {
+            const userType = localStorage.getItem('userType');
+            const userDept = localStorage.getItem('userDept');
+
+            onSnapshot(mainDepartmentsCol, snapshot => {
+                let allDepartments = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                
+                allDepartments.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+
+                // إذا كان المستخدم مدير قسم، اعرض قسمه فقط
+                if (userType === 'dept_admin' && userDept) {
+                    departments = allDepartments.filter(d => d.name === userDept);
+                } else {
+                    departments = allDepartments; // المدير العام يرى كل الأقسام
+                }
+
+                dom.departmentSelect.innerHTML = '<option value="">-- يرجى اختيار القسم للبدء --</option>' + 
+                    departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+                // إخفاء نموذج إضافة قسم جديد لغير المدير العام
+                const deptControls = document.getElementById('departments-controls');
+                if (deptControls) {
+                    deptControls.style.display = (userType === 'super_admin') ? 'block' : 'none';
+                }
+
+                // الدخول التلقائي للقسم إذا كان هناك قسم واحد فقط (لمدير القسم)
+                if (userType === 'dept_admin' && departments.length === 1) {
+                    dom.departmentSelect.value = departments[0].id;
+                    switchDepartment(departments[0].id);
+                } else if (currentDepartmentId && departments.some(d => d.id === currentDepartmentId)) {
+                    dom.departmentSelect.value = currentDepartmentId;
+                    updateDepartmentButtons();
+                } else {
+                    currentDepartmentId = null;
+                    dom.appWorkspace.classList.add('hidden');
+                    updateDepartmentButtons();
+                }
+            });
+
+            dom.departmentSelect.addEventListener('change', (e) => {
+                const deptId = e.target.value;
+                if (deptId) {
+                    switchDepartment(deptId);
+                } else {
+                    dom.appWorkspace.classList.add('hidden');
+                    currentDepartmentId = null;
+                    updateDepartmentButtons();
+                }
+            });
+
+            if (userRole === 'admin' && localStorage.getItem('userType') === 'super_admin') {
+                dom.departmentForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('department-name');
+                    const name = nameInput.value.trim();
+                    const button = e.target.querySelector('button[type="submit"]');
+                    
+                    if (!name) return;
+                    if (departments.some(d => d.name === name)) {
+                        showToast('هذا القسم موجود بالفعل.', 'error');
+                        return;
+                    }
+
+                    toggleButtonLoading(button, true);
+                    try {
+                        await addDoc(mainDepartmentsCol, { name });
+                        nameInput.value = '';
+                        showToast('تمت إضافة القسم بنجاح!');
+                    } catch (err) {
+                        showToast('حدث خطأ أثناء الإضافة', 'error');
+                    } finally {
+                        toggleButtonLoading(button, false);
+                    }
+                });
+            }
+        }
+
+        function switchDepartment(deptId) {
+            currentDepartmentId = deptId;
+            updateDepartmentButtons();
+            dom.appWorkspace.classList.remove('hidden');
+            dom.loadingIndicator.style.display = 'block';
+
+            // 1. Kill old connections
+            activeUnsubscribes.forEach(unsub => unsub());
+            activeUnsubscribes = [];
+
+            // 2. Clear local arrays to prevent bleeding
+            subjects = []; instructors = []; locations = []; courses = []; levels = []; groups = [];
+            courseColors = {}; scheduleGrid = {}; savedSchedules = {};
+
+            // 3. Re-assign paths dynamic to department
+            // We append the deptId to the collection name to strictly isolate data
+            // while obeying the single-level public data path rule.
+            const basePath = `artifacts/${appId}/public/data`;
+            levelsCol = collection(db, basePath, `levels_${deptId}`);
+            groupsCol = collection(db, basePath, `groups_${deptId}`);
+            subjectsCol = collection(db, basePath, `subjects_${deptId}`);
+            instructorsCol = collection(db, basePath, `instructors_${deptId}`);
+            locationsCol = collection(db, basePath, `locations_${deptId}`);
+            coursesCol = collection(db, basePath, `courses_${deptId}`);
+            schedulesCol = collection(db, basePath, `schedules_${deptId}`);
+            settingsCol = collection(db, basePath, `settings_${deptId}`);
+
+            // 4. Start listening to the new collections
+            setupRealtimeListeners();
+        }
+
         
         function showToast(message, type = 'success') {
             const toastContainer = document.getElementById('toast-container');
@@ -1018,7 +1210,7 @@
         }
 
         window.deleteItem = async (type, id) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const itemMap = { level: {data: levels, col: levelsCol}, group: {data: groups, col: groupsCol}, subject: {data: subjects, col: subjectsCol}, instructor: {data: instructors, col: instructorsCol}, location: {data: locations, col: locationsCol}, course: {data: courses, col: coursesCol} };
             const itemToDelete = itemMap[type].data.find(i => i.id === id);
             if(!itemToDelete) return;
@@ -1081,7 +1273,7 @@
                     }
                     if (gridWasModified) {
                         const scheduleRef = doc(db, schedulesCol.path, levelName);
-                        batch.update(scheduleRef, { grid: JSON.stringify(grid) });
+                        batch.set(scheduleRef, { grid: JSON.stringify(grid) }, { merge: true }); // SAFE UPDATE
                     }
                 }
             }
@@ -1098,20 +1290,20 @@
             }, detailsHtml);
         };
 
-        async function setupRealtimeListeners() {
+        function setupRealtimeListeners() {
             let loadedCollections = 0;
             const totalCollections = 8; 
             const onCollectionLoaded = () => {
                 loadedCollections++;
                 if (loadedCollections >= totalCollections) {
                     dom.loadingIndicator.style.display = 'none';
-                    dom.mainContent.classList.remove('hidden');
                     detectAndDisplayConflicts();
                 }
             };
             
             const settingsDocRef = doc(settingsCol, 'app_config');
-            onSnapshot(settingsDocRef, (doc) => {
+            // Store the unsubscribes in activeUnsubscribes array
+            activeUnsubscribes.push(onSnapshot(settingsDocRef, (doc) => {
                 if (doc.exists()) {
                     ignoredConflicts = new Set(doc.data().ignoredConflicts || []);
                 }
@@ -1119,12 +1311,12 @@
             }, (error) => {
                 console.error("Error fetching settings:", error);
                 onCollectionLoaded(); 
-            });
+            }));
 
-            onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(groupsCol), s => { groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroups(); updateGroupSelector(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(subjectsCol), s => { subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); subjects.forEach(sub => courseColors[sub.name] = sub.color || generateHslColor(sub.name)); renderSubjects(); updateCourseSelector(); renderSummaryTable(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(instructorsCol), s => { 
+            activeUnsubscribes.push(onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(groupsCol), s => { groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroups(); updateGroupSelector(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(subjectsCol), s => { subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); subjects.forEach(sub => courseColors[sub.name] = sub.color || generateHslColor(sub.name)); renderSubjects(); updateCourseSelector(); renderSummaryTable(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(instructorsCol), s => { 
                 instructors = s.docs.map(d => ({ id: d.id, ...d.data() })); 
                 renderInstructors(); 
                 updateInstructorSelector(); 
@@ -1138,10 +1330,10 @@
                     displayLocationSchedules();
                 }
                 onCollectionLoaded(); 
-            }, console.error);
-            onSnapshot(query(locationsCol), s => { locations = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLocations(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(coursesCol), s => { courses = s.docs.map(d => ({ id: d.id, ...d.data() })); renderCourses(); renderSummaryTable(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(schedulesCol), s => {
+            }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(locationsCol), s => { locations = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLocations(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(coursesCol), s => { courses = s.docs.map(d => ({ id: d.id, ...d.data() })); renderCourses(); renderSummaryTable(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(schedulesCol), s => {
                 savedSchedules = {};
                 s.docs.forEach(d => { try { savedSchedules[d.id] = JSON.parse(d.data().grid); } catch (e) { console.error("Error parsing saved schedule:", e); } });
                 handleLevelFilterChange();
@@ -1156,7 +1348,7 @@
                     displayLocationSchedules();
                 }
                 onCollectionLoaded();
-            }, console.error);
+            }, console.error));
         }
         
         const showMainView = () => {
@@ -1169,7 +1361,7 @@
         window.showMainView = showMainView;
 
         window.showAdvancedLevelsView = () => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             dom.mainContent.classList.add('hidden');
             dom.advancedInstructorsView.classList.add('hidden');
             dom.advancedLevelsView.classList.remove('hidden');
@@ -1185,7 +1377,7 @@
         }
         
         window.showAdvancedInstructorsView = () => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             dom.mainContent.classList.add('hidden');
             dom.advancedLevelsView.classList.add('hidden');
             dom.advancedInstructorsView.classList.remove('hidden');
@@ -1195,6 +1387,8 @@
         function setupEventListeners() {
             document.getElementById('logout-btn').addEventListener('click', () => {
                 localStorage.removeItem('userRole');
+                localStorage.removeItem('userType');
+                localStorage.removeItem('userDept');
                 location.reload();
             });
 
@@ -1202,6 +1396,69 @@
             setupCourseFilters();
 
             if (userRole === 'admin') {
+                // Add Department Edit Event
+                dom.editDeptBtn.addEventListener('click', () => {
+                    if (!currentDepartmentId) return;
+                    const dept = departments.find(d => d.id === currentDepartmentId);
+                    if (!dept) return;
+
+                    dom.editModalTitle.textContent = `تعديل اسم القسم`;
+                    dom.editModalInput.value = dept.name;
+                    dom.editModal.style.display = "block";
+                    
+                    dom.editModalSaveBtn.onclick = async () => {
+                        const newName = dom.editModalInput.value.trim();
+                        if (!newName || newName === dept.name) {
+                            dom.editModal.style.display = "none";
+                            return;
+                        }
+                        if (departments.some(d => d.name === newName && d.id !== currentDepartmentId)) {
+                            showToast('هذا القسم موجود بالفعل.', 'error');
+                            return;
+                        }
+                        const btn = dom.editModalSaveBtn;
+                        toggleButtonLoading(btn, true);
+                        try {
+                            await updateDoc(doc(mainDepartmentsCol, currentDepartmentId), { name: newName });
+                            showToast('تم تعديل اسم القسم بنجاح!');
+                            dom.editModal.style.display = "none";
+                        } catch (error) {
+                            showToast('حدث خطأ أثناء التعديل.', 'error');
+                        } finally {
+                            toggleButtonLoading(btn, false);
+                        }
+                    };
+                });
+
+                // Add Department Delete Event
+                dom.deleteDeptBtn.addEventListener('click', () => {
+                    if (!currentDepartmentId) return;
+                    const dept = departments.find(d => d.id === currentDepartmentId);
+                    if (!dept) return;
+
+                    showConfirmModal(`هل أنت متأكد من حذف قسم "${dept.name}"؟`, async () => {
+                        try {
+                            // First, wipe out the current department's data completely
+                            await handleReset(true); 
+
+                            // Second, delete the main department document itself
+                            await deleteDoc(doc(mainDepartmentsCol, currentDepartmentId));
+                            
+                            showToast('تم حذف القسم وجميع بياناته بنجاح!');
+                            
+                            // Reset UI state
+                            currentDepartmentId = null;
+                            dom.departmentSelect.value = '';
+                            dom.appWorkspace.classList.add('hidden');
+                            updateDepartmentButtons();
+                        } catch (error) {
+                            console.error(error);
+                            showToast('حدث خطأ أثناء الحذف.', 'error');
+                        }
+                    }, "<p class='font-bold text-red-600 mt-2'><i class='fas fa-exclamation-triangle'></i> تحذير: سيتم حذف القسم وجميع البيانات والجداول والأعضاء التابعة له نهائياً ولا يمكن التراجع عن ذلك.</p>");
+                });
+
+
                 dom.levelForm.addEventListener('submit', handleAddLevel);
                 dom.groupForm.addEventListener('submit', handleAddGroup);
                 dom.subjectForm.addEventListener('submit', async (e) => {
@@ -1305,7 +1562,7 @@
                 dom.saveBackupBtn.addEventListener('click', handleSaveBackup);
                 dom.loadBtn.addEventListener('click', () => dom.fileLoader.click());
                 dom.fileLoader.addEventListener('change', handleLoadScheduleFromFile);
-                dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل البيانات؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
+                dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل بيانات هذا القسم؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
             }
 
             dom.locationsViewBtn.addEventListener('click', displayLocationSchedules);
@@ -1340,11 +1597,225 @@
                     const groupSelectContainer = document.getElementById('group-select-container');
                     groupSelectContainer.style.display = e.target.value === 'lecture' ? 'block' : 'none';
                 });
+
+                // --- تفعيل مستمعي السحب والإفلات (Drag and Drop) ---
+                document.addEventListener('dragstart', (e) => {
+                    if (userRole !== 'admin') return;
+                    if (e.target.classList.contains('schedule-item')) {
+                        const courseId = e.target.dataset.courseId;
+                        if(!courseId) return; // قد يكون نشاط مخصص، نتجاهله حالياً
+                        draggedItem = { type: 'table', courseId: courseId, day: e.target.dataset.day, time: parseInt(e.target.dataset.time), location: e.target.dataset.location, level: dom.levelFilterSelect.value };
+                        e.dataTransfer.setData('text/plain', courseId);
+                        setTimeout(() => e.target.style.opacity = '0.5', 0);
+                    } else if (e.target.closest('.list-item')) {
+                        const listItem = e.target.closest('.list-item');
+                        const courseId = listItem.dataset.id;
+                        draggedItem = { type: 'list', courseId: courseId, level: dom.levelFilterSelect.value };
+                        e.dataTransfer.setData('text/plain', courseId);
+                        setTimeout(() => listItem.style.opacity = '0.5', 0);
+                    }
+                });
+
+                document.addEventListener('dragend', (e) => {
+                    if (userRole !== 'admin') return;
+                    if (e.target.classList.contains('schedule-item') || e.target.closest('.list-item')) {
+                        e.target.style.opacity = '1';
+                    }
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                });
+
+                document.addEventListener('dragover', (e) => {
+                    if (userRole !== 'admin') return;
+                    const dropTarget = e.target.closest('.drop-target');
+                    // السماح بالسحب فقط في جداول الفرق (منع السحب في جداول الأعضاء)
+                    if (dropTarget && !dropTarget.classList.contains('member-drop-target')) {
+                        e.preventDefault();
+                        dropTarget.classList.add('drag-over');
+                    }
+                });
+
+                document.addEventListener('dragleave', (e) => {
+                    if (userRole !== 'admin') return;
+                    const dropTarget = e.target.closest('.drop-target');
+                    if (dropTarget) dropTarget.classList.remove('drag-over');
+                });
+
+                document.addEventListener('drop', async (e) => {
+                    if (userRole !== 'admin') return;
+                    const dropTargetContainer = e.target.closest('.drop-target');
+                    const droppedOnItem = e.target.closest('.schedule-item'); 
+                    
+                    if (!dropTargetContainer || dropTargetContainer.classList.contains('member-drop-target')) return;
+                    e.preventDefault();
+                    dropTargetContainer.classList.remove('drag-over');
+
+                    if (!draggedItem) return;
+
+                    const targetDay = dropTargetContainer.dataset.day;
+                    const targetTime = parseInt(dropTargetContainer.dataset.time);
+                    const level = dom.levelFilterSelect.value;
+                    
+                    if (!level || level === 'all') {
+                        showToast("يرجى اختيار فرقة دراسية أولاً للتعديل بالسحب والإفلات.", "error");
+                        return;
+                    }
+
+                    const courseId = draggedItem.courseId;
+                    const course = courses.find(c => c.id === courseId);
+                    if (!course) return;
+
+                    let grid = JSON.parse(JSON.stringify(savedSchedules[level] || {}));
+                    
+                    if (targetTime + course.duration > 18) {
+                        showToast("وقت المحاضرة يتجاوز نهاية اليوم الدراسي.", "error");
+                        return;
+                    }
+
+                    // إذا تم الإسقاط فوق مادة أخرى مباشرة -> إظهار خيارات (تبديل / إدراج معاً)
+                    if (droppedOnItem && droppedOnItem.dataset.courseId !== courseId) {
+                        const targetLoc = droppedOnItem.dataset.location;
+                        const occupiedBy = grid[targetDay][targetTime][targetLoc];
+                        
+                        dropContext = { draggedCourse: course, draggedItemInfo: draggedItem, targetDay, targetTime, targetLocation: targetLoc, occupiedBy, level };
+                        dom.dropActionModal.modal.style.display = 'block';
+                        return;
+                    }
+
+                    // وإلا، مجرد النقل إلى الخلية الفارغة أو إلى مكان آخر في نفس الخلية
+                    let targetLocation = null;
+                    if (draggedItem.type === 'table') {
+                        targetLocation = draggedItem.location;
+                    }
+
+                    let isFree = false;
+                    if (targetLocation) {
+                        isFree = true;
+                        for (let i = 0; i < course.duration; i++) {
+                            const existing = grid[targetDay]?.[targetTime + i]?.[targetLocation];
+                            if (existing && existing.id !== courseId) {
+                                isFree = false; break;
+                            }
+                        }
+                    }
+
+                    // إذا لم يكن المكان القديم متاحاً أو تم السحب من القائمة الجانبية -> ابحث عن مكان فارغ
+                    if (!isFree) {
+                        const availableLocs = findAvailableLocations(course, targetDay, targetTime, level);
+                        const matchingLocs = availableLocs.filter(l => l.type === course.requiredLocationType);
+                        if (matchingLocs.length > 0) {
+                            targetLocation = matchingLocs[0].name;
+                        } else {
+                            showToast("لا توجد أماكن متاحة (قاعات/معامل) في هذا الوقت لتسكين المادة.", "error");
+                            return;
+                        }
+                    }
+
+                    await executeMove(draggedItem, course, targetDay, targetTime, targetLocation, level, grid);
+                });
             }
         }
         
+        // --- الدوال الأساسية للسحب والإفلات ---
+        async function executeMove(dragInfo, course, targetDay, targetTime, targetLocation, level, grid) {
+            // حذف المادة من المكان القديم إذا كانت مسحوبة من الجدول
+            if (dragInfo.type === 'table') {
+                for (let i = 0; i < course.duration; i++) {
+                    if (grid[dragInfo.day]?.[dragInfo.time + i]?.[dragInfo.location]) {
+                        delete grid[dragInfo.day][dragInfo.time + i][dragInfo.location];
+                    }
+                }
+            }
+
+            // إعداد البيانات
+            let cellData;
+            if (dragInfo.type === 'table') {
+                cellData = savedSchedules[level][dragInfo.day][dragInfo.time][dragInfo.location];
+                cellData = { ...cellData, isContinuation: false }; 
+            } else {
+                cellData = { ...course, isContinuation: false };
+            }
+
+            // وضع المادة في المكان الجديد
+            for (let i = 0; i < course.duration; i++) {
+                if (!grid[targetDay]) grid[targetDay] = {};
+                if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
+                grid[targetDay][targetTime + i][targetLocation] = { ...cellData, isContinuation: i > 0 };
+            }
+
+            await saveScheduleToFirebase(level, grid);
+            draggedItem = null;
+            showToast("تم نقل المادة بنجاح!");
+            handleLevelFilterChange(); // تحديث العرض
+        }
+
+        async function handleSwapAction() {
+            dom.dropActionModal.modal.style.display = 'none';
+            if (!dropContext) return;
+            
+            const { draggedCourse, draggedItemInfo, targetDay, targetTime, targetLocation, occupiedBy, level } = dropContext;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+
+            if (draggedItemInfo.type === 'list') {
+                showToast("لا يمكن التبديل مع مادة من القائمة الجانبية، يمكنك الإدراج معاً فقط.", "error");
+                return;
+            }
+
+            if (draggedCourse.duration !== occupiedBy.duration) {
+                showToast("عفواً، يجب أن تكون المادتان بنفس المدة الزمنية لإتمام التبديل.", "error");
+                return;
+            }
+
+            // إزالة كلا المادتين من أماكنهما
+            for (let i = 0; i < draggedCourse.duration; i++) {
+                delete grid[draggedItemInfo.day][draggedItemInfo.time + i][draggedItemInfo.location];
+                delete grid[targetDay][targetTime + i][targetLocation];
+            }
+
+            // وضع المادة المسحوبة في المكان الجديد
+            const draggedData = savedSchedules[level][draggedItemInfo.day][draggedItemInfo.time][draggedItemInfo.location];
+            for (let i = 0; i < draggedCourse.duration; i++) {
+                if (!grid[targetDay]) grid[targetDay] = {};
+                if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
+                grid[targetDay][targetTime + i][targetLocation] = { ...draggedData, isContinuation: i > 0 };
+            }
+
+            // وضع المادة القديمة في المكان الأصلي للمادة المسحوبة
+            for (let i = 0; i < occupiedBy.duration; i++) {
+                if (!grid[draggedItemInfo.day]) grid[draggedItemInfo.day] = {};
+                if (!grid[draggedItemInfo.day][draggedItemInfo.time + i]) grid[draggedItemInfo.day][draggedItemInfo.time + i] = {};
+                grid[draggedItemInfo.day][draggedItemInfo.time + i][draggedItemInfo.location] = { ...occupiedBy, isContinuation: i > 0 };
+            }
+
+            await saveScheduleToFirebase(level, grid);
+            showToast("تم التبديل بنجاح!");
+            dropContext = null; draggedItem = null;
+            handleLevelFilterChange();
+        }
+
+        async function handleInsertTogetherAction() {
+            dom.dropActionModal.modal.style.display = 'none';
+            if (!dropContext) return;
+            
+            const { draggedCourse, draggedItemInfo, targetDay, targetTime, level } = dropContext;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+
+            // البحث عن قاعة/معمل آخر فارغ في نفس الوقت المزدحم
+            const availableLocs = findAvailableLocations(draggedCourse, targetDay, targetTime, level);
+            const matchingLocs = availableLocs.filter(l => l.type === draggedCourse.requiredLocationType);
+
+            if (matchingLocs.length === 0) {
+                showToast("عذراً، لا توجد قاعات أخرى فارغة لإدراج هذه المادة في نفس الوقت!", "error");
+                return;
+            }
+
+            const newTargetLocation = matchingLocs[0].name;
+            await executeMove(draggedItemInfo, draggedCourse, targetDay, targetTime, newTargetLocation, level, grid);
+            dropContext = null;
+        }
+        // ------------------------------------------------
+
         function createControlButtons(type, id) { 
-            if (userRole === 'guest') return '';
+            if (userRole !== 'admin') return '';
             return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; 
         }
         function renderSubjects() {
@@ -1358,7 +1829,8 @@
 
             const renderList = (courseArray, targetElement, type) => {
                  if(type === filterType || filterType === 'all') {
-                    targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
+                    // جعل القائمة الجانبية قابلة للسحب أيضاً (draggable)
+                    targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" draggable="${userRole === 'admin' ? 'true' : 'false'}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
                  }
             }
 
@@ -1458,7 +1930,7 @@
         }
 
         function openLocationEditModal(id) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const location = locations.find(l => l.id === id);
             if (!location) return;
             const modal = dom.locationEditModal;
@@ -1473,7 +1945,7 @@
         }
 
         window.openEditModal = (type, id) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             if (type === 'location') {
                 return openLocationEditModal(id);
             }
@@ -1485,12 +1957,12 @@
             dom.editModalSaveBtn.onclick = () => handleUpdateItem(type, id, dom.editModalInput.value.trim());
         };
         window.handleSubjectColorChange = async (id, color) => { 
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const subjectRef = doc(db, subjectsCol.path, id); await updateDoc(subjectRef, { color: color }); 
         };
         
         async function handleUpdateItem(type, id, newName, options = {}) {
-            if (userRole === 'guest' || !newName) return;
+            if (userRole !== 'admin' || !newName) return;
             const collectionInfo = { level: {col: levelsCol }, group: {col: groupsCol}, subject: {col: subjectsCol }, instructor: {col: instructorsCol }, location: {col: locationsCol } }[type];
             const item = { level: levels, group: groups, subject: subjects, instructor: instructors, location: locations }[type].find(i => i.id === id);
             const oldName = item.name;
@@ -1513,9 +1985,30 @@
             }
             if (type === 'group') { courses.forEach(c => { if(c.groupName === oldName) batch.update(doc(db, coursesCol.path, c.id), { groupName: newName }); }); }
             if (type === 'instructor') { courses.forEach(c => { if(c.instructor === oldName) batch.update(doc(db, coursesCol.path, c.id), { instructor: newName }); }); }
+            
+            // Fixed: use batch.set(..., {merge: true}) instead of batch.update for grids to prevent NOT_FOUND errors
             if (type === 'subject') {
                 courses.forEach(c => { if (c.baseName === oldName) { batch.update(doc(db, coursesCol.path, c.id), { baseName: newName, name: c.name.replace(oldName, newName) }); } });
-                for (const levelName in savedSchedules) { let grid = JSON.parse(JSON.stringify(savedSchedules[levelName])); let gridWasModified = false; for (const day in grid) { for (const time in grid[day]) { for (const loc in grid[day][time]) { const cellData = grid[day][time][loc]; if (cellData && cellData.baseName === oldName) { cellData.baseName = newName; cellData.name = cellData.name.replace(oldName, newName); gridWasModified = true; } } } } if (gridWasModified) { const scheduleRef = doc(db, schedulesCol.path, levelName); batch.update(scheduleRef, { grid: JSON.stringify(grid) }); } }
+                for (const levelName in savedSchedules) { 
+                    let grid = JSON.parse(JSON.stringify(savedSchedules[levelName])); 
+                    let gridWasModified = false; 
+                    for (const day in grid) { 
+                        for (const time in grid[day]) { 
+                            for (const loc in grid[day][time]) { 
+                                const cellData = grid[day][time][loc]; 
+                                if (cellData && cellData.baseName === oldName) { 
+                                    cellData.baseName = newName; 
+                                    cellData.name = cellData.name.replace(oldName, newName); 
+                                    gridWasModified = true; 
+                                } 
+                            } 
+                        } 
+                    } 
+                    if (gridWasModified) { 
+                        const scheduleRef = doc(db, schedulesCol.path, levelName); 
+                        batch.set(scheduleRef, { grid: JSON.stringify(grid) }, { merge: true }); 
+                    } 
+                }
             }
              if (type === 'location') {
                 const { newType } = options;
@@ -1536,7 +2029,7 @@
                         }
                         if (gridWasModified) {
                             const scheduleRef = doc(db, schedulesCol.path, levelName);
-                            batch.update(scheduleRef, { grid: JSON.stringify(grid) });
+                            batch.set(scheduleRef, { grid: JSON.stringify(grid) }, { merge: true }); // SAFE UPDATE
                         }
                     }
                 }
@@ -1552,7 +2045,7 @@
             showToast("تم التعديل بنجاح!");
         }
         window.openAvailabilityModal = (id) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const instructor = instructors.find(i => i.id === id); if(!instructor) return;
             dom.availabilityModalTitle.textContent = `تحديد أوقات التفرغ لـ ${instructor.name}`; let gridHtml = '';
             DAYS.forEach(day => { gridHtml += `<div class="grid grid-cols-6 gap-2 items-center"><label class="font-bold col-span-1">${day}</label><div class="col-span-5 flex flex-wrap gap-1">`; TIME_SLOTS_HOURLY.forEach(time => { const isChecked = ((instructor.availableTimes || {})[day] || []).includes(time); gridHtml += `<label class="flex items-center space-x-1 p-1 border rounded-md"><input type="checkbox" data-day="${day}" data-time="${time}" ${isChecked ? 'checked' : ''} class="form-checkbox h-4 w-4"><span class="text-xs">${formatTimeSlot(time)}</span></label>`; }); gridHtml += `</div></div>`; });
@@ -1561,7 +2054,7 @@
             dom.availabilityModalSaveBtn.onclick = () => handleSaveAvailability(id);
         };
         async function handleSaveAvailability(id) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const instructorRef = doc(db, instructorsCol.path, id); const newAvailableTimes = {};
             const checkboxes = dom.availabilityGrid.querySelectorAll('input[type="checkbox"]:checked');
             checkboxes.forEach(cb => { const day = cb.dataset.day; const time = parseInt(cb.dataset.time); if (!newAvailableTimes[day]) newAvailableTimes[day] = []; newAvailableTimes[day].push(time); });
@@ -1570,15 +2063,13 @@
             showToast("تم حفظ التفرغ بنجاح!");
         }
         function findAvailableLocations(course, day, time, level) {
-            // Updated to be more flexible, but this function is mainly used for suggestion.
-            // For the edit modal, we will show ALL locations.
             const targetDay = day; const targetTime = parseInt(time); const duration = course.duration; const grid = savedSchedules[level]; if (!grid) return [];
             return locations.filter(loc => { 
                 let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; 
             });
         }
         window.openScheduleItemModal = (courseId, day, time, locationName, levelOverride = null) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const courseDataFromGrid = savedSchedules[levelOverride || dom.levelFilterSelect.value]?.[day]?.[time]?.[locationName];
             if (!courseDataFromGrid) return;
 
@@ -1615,10 +2106,8 @@
             let locationOptions = '';
             for(const type in LOCATION_TYPES) {
                 locationOptions += `<optgroup label="${LOCATION_TYPES[type]}">`;
-                const locationsOfType = locations.filter(l => l.type === type);
+                const locationsOfType = locations.filter(l => l.type === type).sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
                 locationsOfType.forEach(loc => {
-                     // Check if it's the current location or available
-                     // We allow selection even if potentially busy, the system will check later or overwrite
                      locationOptions += `<option value="${loc.name}" ${loc.name === locationName ? 'selected' : ''}>${loc.name}</option>`;
                 });
                 locationOptions += `</optgroup>`;
@@ -1638,11 +2127,12 @@
             dom.courseEditModalMergeBtn.onclick = () => handleMergeCourse(courseId, currentLevel);
         };
 
+        // FIXED: Re-engineered function to safely update location and validate before saving
         async function handleScheduleItemUpdate(context) {
             const { courseId, subjectId, originalSubjectName, originalLocation, day, time, level } = context; 
             const newSubjectName = document.getElementById('course-edit-subject-name-input').value.trim();
-            if (newSubjectName && newSubjectName !== originalSubjectName) { await handleUpdateItem('subject', subjectId, newSubjectName); dom.courseEditModal.style.display = 'none'; return; }
             
+            // 1. Gather Inputs
             const course = courses.find(c => c.id === courseId);
             const newSectionName = document.getElementById('course-edit-section-name-input').value.trim();
             const newInstructor = dom.courseEditInstructorSelect.value;
@@ -1650,11 +2140,40 @@
             const newLocation = document.getElementById('course-edit-location-select').value;
             const newColor = document.getElementById('course-edit-color-input').value;
 
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+            const courseDataInGrid = grid[day]?.[parseInt(time)]?.[originalLocation];
+
+            if (!courseDataInGrid) {
+                showToast("خطأ: لم يتم العثور على المقرر في الجدول.", "error");
+                return;
+            }
+
+            // 2. Validate Location Change FIRST before any DB commits
+            if (newLocation !== originalLocation) {
+                let isFree = true;
+                for (let i = 0; i < courseDataInGrid.duration; i++) {
+                     if (grid[day]?.[parseInt(time) + i]?.[newLocation]) {
+                         isFree = false; break;
+                     }
+                }
+
+                if (!isFree) {
+                    showToast("المكان الجديد مشغول! يرجى إفراغه أولاً أو اختيار مكان آخر.", "error");
+                    return; // SAFE EXIT: Nothing broke, user can try again
+                }
+            }
+
+            // 3. Process Firebase Document Updates
             const batch = writeBatch(db);
+            
+            // If the subject name changed, trigger the universal update function first
+            if (newSubjectName && newSubjectName !== originalSubjectName) { 
+                await handleUpdateItem('subject', subjectId, newSubjectName); 
+            }
+
             const subjectRef = doc(db, subjectsCol.path, subjectId);
             batch.update(subjectRef, { color: newColor });
             
-            // Find the location object to get its type
             const locationObj = locations.find(l => l.name === newLocation);
             const newLocationType = locationObj ? locationObj.type : 'قاعة';
 
@@ -1666,7 +2185,6 @@
                     courseUpdates.groupName = newGroupName || null;
                 }
                 if (course.type === 'lab' && newSectionName && newSectionName !== course.name) courseUpdates.name = newSectionName;
-                // Update required type if location changed
                 courseUpdates.requiredLocationType = newLocationType;
 
                 if (Object.keys(courseUpdates).length > 0) {
@@ -1675,53 +2193,48 @@
             }
             await batch.commit();
 
-            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
-            const courseDataInGrid = grid[day]?.[parseInt(time)]?.[originalLocation];
-            
-            if (courseDataInGrid) {
-                let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
-                updatedCourseData.requiredLocationType = newLocationType; // Sync type in grid
+            // 4. Safely apply grid movement
+            let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
+            updatedCourseData.requiredLocationType = newLocationType; 
 
-                if (courseDataInGrid.type === 'lecture') {
-                    updatedCourseData.groupName = newGroupName || null;
+            if (updatedCourseData.type === 'lecture') {
+                updatedCourseData.groupName = newGroupName || null;
+            }
+            if (updatedCourseData.type === 'lab' && newSectionName) {
+                updatedCourseData.name = newSectionName;
+            }
+            // Sync new Subject name into grid if it changed
+            if (newSubjectName && newSubjectName !== originalSubjectName) {
+                 updatedCourseData.baseName = newSubjectName;
+                 updatedCourseData.name = updatedCourseData.name.replace(originalSubjectName, newSubjectName);
+            }
+
+            if (newLocation !== originalLocation) {
+                for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { delete grid[day][parseInt(time) + i][originalLocation]; } }
+                for (let i = 0; i < courseDataInGrid.duration; i++) {
+                    if (!grid[day]) grid[day] = {};
+                    if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {};
+                    grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 };
                 }
-                if (courseDataInGrid.type === 'lab' && newSectionName) {
-                    updatedCourseData.name = newSectionName;
-                }
-
-                if (newLocation !== originalLocation) {
-                    // Check if new location is free
-                    let isFree = true;
-                    for (let i = 0; i < courseDataInGrid.duration; i++) {
-                         if (grid[day]?.[parseInt(time) + i]?.[newLocation]) {
-                             isFree = false; break;
-                         }
-                    }
-
-                    if (!isFree) {
-                        showToast("المكان الجديد مشغول! قم بإفراغه أولاً.", "error");
-                        // We updated metadata (color/instructor) but not the grid move
-                        return;
-                    }
-
-                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { delete grid[day][parseInt(time) + i][originalLocation]; } }
-                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (!grid[day]) grid[day] = {}; if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {}; grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 }; }
-                } else {
-                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]?.[originalLocation]) { grid[day][parseInt(time) + i][originalLocation] = { ...updatedCourseData, isContinuation: i > 0 }; } }
-                }
-                await saveScheduleToFirebase(level, grid);
+            } else {
+                for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]?.[originalLocation]) { grid[day][parseInt(time) + i][originalLocation] = { ...updatedCourseData, isContinuation: i > 0 }; } }
             }
             
-            dom.courseEditModal.style.display = 'none';
-            showToast("تم حفظ التعديلات!");
+            await saveScheduleToFirebase(level, grid);
             
-            // Refresh custom views if open
+            dom.courseEditModal.style.display = 'none';
+            showToast("تم حفظ التعديلات ونقل المكان بنجاح!");
+            
             if(activeCustomView === 'locations') displayLocationSchedules();
+            if(activeCustomView === 'members') {
+                const search = document.getElementById('member-search-input')?.value || '';
+                const category = document.querySelector('input[name="category"]:checked')?.value || 'all';
+                const levelFilter = document.getElementById('member-level-filter')?.value || 'all';
+                displayMemberSchedules(search, category, levelFilter);
+            }
         }
 
         async function handleDeleteFromSchedule(courseId) {
-            // This function now permanently deletes the course.
-            // The existing deleteItem function already handles everything.
             await window.deleteItem('course', courseId);
             dom.courseEditModal.style.display = 'none';
         }
@@ -1781,13 +2294,15 @@
 
 
         window.openCustomActivityModal = (instructorId, day, time, activityId = null) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const instructor = instructors.find(i => i.id === instructorId);
             if (!instructor) return;
 
             const modal = dom.customActivityModal;
             const locationSelect = dom.customActivityLocation;
-            locationSelect.innerHTML = '<option value="">(بدون مكان)</option>' + locations.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+            // Sort locations naturally
+            const sortedLocations = [...locations].sort((a,b) => a.name.localeCompare(b.name, 'ar', {numeric:true}));
+            locationSelect.innerHTML = '<option value="">(بدون مكان)</option>' + sortedLocations.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
 
             const isEditMode = activityId !== null;
             let activity = null;
@@ -2018,7 +2533,7 @@
         }
         
         async function allowConflict(conflictId) {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             ignoredConflicts.add(conflictId);
             const settingsDocRef = doc(settingsCol, 'app_config');
             try {
@@ -2158,18 +2673,21 @@
                 });
             }
 
-
             let tableHtml = `<div class="table-container">
                                 <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
                                 <h2 class="text-2xl font-bold text-center mb-4 text-gray-700">${level === 'all' ? 'الجدول الدراسي العام' : `الجدول الدراسي - ${level}`}</h2>`;
             tableHtml += '<table class="w-full border-collapse">';
             tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
+            
+            // Sort locations numerically/alphabetically before generating
+            const sortedLocations = [...locations].sort((a,b) => a.name.localeCompare(b.name, 'ar', {numeric:true}));
+
             DAYS.forEach(day => {
                 tableHtml += `<tr class="text-center"><td class="p-2 border border-gray-300 font-semibold align-middle bg-gray-50">${day}</td>`;
                 let time_cursor = 0;
                 while (time_cursor < TIME_SLOTS_HOURLY.length) {
                     const time = TIME_SLOTS_HOURLY[time_cursor];
-                    let itemsInCell = locations.map(loc => ({ locName: loc.name, data: scheduleGrid[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
+                    let itemsInCell = sortedLocations.map(loc => ({ locName: loc.name, data: scheduleGrid[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
                     
                     itemsInCell.sort((a, b) => {
                         if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
@@ -2213,7 +2731,7 @@
                         tableHtml += `</div></td>`;
                         time_cursor += duration;
                     } else { 
-                        const isContinuationSlot = locations.some(loc => scheduleGrid[day]?.[time]?.[loc.name]?.isContinuation); 
+                        const isContinuationSlot = sortedLocations.some(loc => scheduleGrid[day]?.[time]?.[loc.name]?.isContinuation); 
                         if (!isContinuationSlot) { 
                             tableHtml += `<td class="p-0 border border-gray-300 align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="drop-target h-full" data-day="${day}" data-time="${time}"></div></td>`; 
                         } 
@@ -2229,11 +2747,13 @@
             }
         }
         function displayUnscheduled(unscheduled) { dom.unscheduledOutput.innerHTML = unscheduled.length ? `<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md" role="alert"><p class="font-bold text-lg">مواد لم يتم تسكينها:</p><ul class="list-disc list-inside">${unscheduled.map(c => `<li>${c.name} (${c.instructor})</li>`).join('')}</ul></div>` : ''; }
+        
         function displayLocationSchedules() {
             activeCustomView = 'locations'; dom.customViewsContainer.style.display = 'block'; dom.hideCustomViewBtn.classList.remove('hidden'); dom.refreshCustomViewBtn.classList.remove('hidden'); let allHtml = '<h2 class="text-3xl font-bold text-center mb-6 text-gray-700 border-b-2 pb-2">جداول الأماكن</h2>';
             for (const type in LOCATION_TYPES) { allHtml += generateAggregatedLocationTableHtml(type, `جداول ${LOCATION_TYPES[type]}`); }
             dom.customScheduleOutput.innerHTML = allHtml;
         }
+
         function displayMemberSchedules(searchQuery = '', filterCategory = 'all', filterLevel = 'all') {
             activeCustomView = 'members'; dom.customViewsContainer.style.display = 'block'; dom.hideCustomViewBtn.classList.remove('hidden'); dom.refreshCustomViewBtn.classList.remove('hidden');
             const sidebarHtml = ` <div id="members-view-sidebar" class="w-full lg:w-1/5 lg:pr-6 mb-8 lg:mb-0"> <div class="bg-white p-4 rounded-xl shadow-md space-y-4"> <div><h3 class="font-bold text-lg">تصفية الأعضاء</h3> <input type="text" id="member-search-input" placeholder="ابحث بالاسم..." class="w-full p-2 border rounded-md mt-2" value="${searchQuery}"></div> <div> <h4 class="font-bold text-sm mb-2">الفئة</h4> <div id="member-filter-options" class="space-y-2"> <label class="flex items-center"><input type="radio" name="category" value="all" class="ml-2" ${filterCategory === 'all' ? 'checked' : ''}> الكل</label> ${INSTRUCTOR_CATEGORIES.map(cat => `<label class="flex items-center"><input type="radio" name="category" value="${cat}" class="ml-2" ${filterCategory === cat ? 'checked' : ''}> ${cat}</label>`).join('')} </div> </div> <div><h4 class="font-bold text-sm mb-2">الفرقة الدراسية</h4><select id="member-level-filter" class="w-full p-2 border rounded-md"><option value="all">كل الفرق</option>${levels.map(l => `<option value="${l.name}" ${filterLevel === l.name ? 'selected' : ''}>${l.name}</option>`).join('')}</select></div> </div> </div> `;
@@ -2256,215 +2776,240 @@
                 addMemberViewDragDropListeners(); 
             }
         }
-        function generateAggregatedLocationTableHtml(filterType, mainTitle) {
-            const filteredItems = locations.filter(l => l.type === filterType);
-            if (!filteredItems.length) return '';
-        
-            let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
-            
-            // 1. Build a comprehensive locationGrid
-            let locationGrid = {};
-            locations.forEach(loc => {
-                locationGrid[loc.name] = {};
-                DAYS.forEach(d => {
-                    locationGrid[loc.name][d] = {};
-                    TIME_SLOTS_HOURLY.forEach(t => locationGrid[loc.name][d][t] = []);
-                });
-            });
 
-            // 2. Populate with courses from schedules
-            for (const levelName in savedSchedules) {
-                const grid = savedSchedules[levelName];
-                for (const day in grid) {
-                    for (const time in grid[day]) {
-                        for (const locName in grid[day][time]) {
-                            const cell = grid[day][time][locName];
-                            if (cell && locationGrid[locName]) { // Check if location exists
-                                locationGrid[locName][day][parseInt(time)].push({ ...cell, level: levelName });
-                            }
-                        }
+        function generateAggregatedLocationTableHtml(filterType, mainTitle) {
+    const filteredItems = locations
+        .filter(l => l.type === filterType)
+        .sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
+
+    if (!filteredItems.length) return '';
+
+    let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
+    
+    let locationGrid = {};
+    locations.forEach(loc => {
+        locationGrid[loc.name] = {};
+        DAYS.forEach(d => {
+            locationGrid[loc.name][d] = {};
+            TIME_SLOTS_HOURLY.forEach(t => locationGrid[loc.name][d][t] = []);
+        });
+    });
+
+    for (const levelName in savedSchedules) {
+        const grid = savedSchedules[levelName];
+        for (const day in grid) {
+            for (const time in grid[day]) {
+                for (const locName in grid[day][time]) {
+                    const cell = grid[day][time][locName];
+                    if (cell && locationGrid[locName]) { 
+                        locationGrid[locName][day][parseInt(time)].push({ ...cell, level: levelName });
                     }
                 }
             }
+        }
+    }
 
-            // 3. Populate with custom activities
-            instructors.forEach(instructor => {
-                const customActivities = instructor.customActivities || {};
-                for (const activityId in customActivities) {
-                    const activity = customActivities[activityId];
-                    if (activity.location && locationGrid[activity.location]) {
-                        if (locationGrid[activity.location][activity.day] && locationGrid[activity.location][activity.day][activity.time]) {
-                            locationGrid[activity.location][activity.day][activity.time].push({
-                                id: activityId,
-                                type: 'custom',
-                                name: activity.text,
-                                instructor: instructor.name,
-                                level: '',
-                                ...activity
-                            });
-                        }
-                    }
+    instructors.forEach(instructor => {
+        const customActivities = instructor.customActivities || {};
+        for (const activityId in customActivities) {
+            const activity = customActivities[activityId];
+            if (activity.location && locationGrid[activity.location]) {
+                if (locationGrid[activity.location][activity.day] && locationGrid[activity.location][activity.day][activity.time]) {
+                    locationGrid[activity.location][activity.day][activity.time].push({
+                        id: activityId,
+                        type: 'custom',
+                        name: activity.text,
+                        instructor: instructor.name,
+                        level: '',
+                        ...activity
+                    });
                 }
-            });
+            }
+        }
+    });
 
-            // 4. Render tables
-            filteredItems.forEach(item => {
-                allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
-                allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
+    filteredItems.forEach(item => {
+        allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
+        allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
+        
+        const currentLocGrid = locationGrid[item.name];
+        const canEdit = userRole === 'admin';
+
+        DAYS.forEach(day => {
+            allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
+            let time_cursor = 0;
+            while (time_cursor < TIME_SLOTS_HOURLY.length) {
+                const time = TIME_SLOTS_HOURLY[time_cursor];
+                const cellItems = currentLocGrid[day][time] || [];
                 
-                const currentLocGrid = locationGrid[item.name];
-                const canEdit = userRole === 'admin';
+                if (cellItems.length > 0) {
+                    const duration = Math.max(...cellItems.map(item => item.duration || 1));
+                    
+                    allHtml += `<td class="p-1 border align-top" colspan="${duration}">`;
+                    allHtml += `<div class="flex flex-col gap-1 h-full min-h-[50px]">`;
 
+                    cellItems.forEach(cellData => {
+                        const bgColor = cellData.type === 'custom' ? (cellData.color || '#e5e7eb') : (courseColors[cellData.baseName] || '#e5e7eb');
+                        const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc');
+                        
+                        let itemClickHandler = '';
+                        if (canEdit) {
+                            if (cellData.type === 'custom') {
+                                itemClickHandler = `window.openLocationActivityModal('${item.name}', '${day}', ${time}, '${cellData.id}')`;
+                            } else {
+                                itemClickHandler = `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')`;
+                            }
+                        }
+
+                        allHtml += `<div class="schedule-item text-[11px] w-full" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="${itemClickHandler}">`;
+                        allHtml += `<p class="font-bold">${cellData.name}</p>`;
+                        if(cellData.instructor) allHtml += `<p>${cellData.instructor}</p>`;
+                        if(cellData.level) allHtml += `<p class="font-bold text-gray-800 bg-white/40 inline-block px-1 rounded mt-1">${cellData.level}</p>`;
+                        allHtml += `</div>`;
+                    });
+
+                    allHtml += `</div></td>`;
+                    time_cursor += duration;
+                } else {
+                    const addActivityClickHandler = canEdit ? `window.openLocationActivityModal('${item.name}', '${day}', ${time})` : '';
+                    allHtml += `<td class="p-0 border align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="h-full min-h-[50px]"></div></td>`;
+                    time_cursor++;
+                }
+            }
+            allHtml += `</tr>`;
+        });
+        allHtml += `</tbody></table></div>`;
+    });
+    
+    return allHtml;
+}
+
+        function generateInstructorSchedulesHtml(searchQuery, filterCategory, filterLevel) {
+            let html = '';
+            let filteredInstructors = instructors;
+            
+            if (searchQuery) {
+                filteredInstructors = filteredInstructors.filter(i => i.name.includes(searchQuery));
+            }
+            if (filterCategory !== 'all') {
+                filteredInstructors = filteredInstructors.filter(i => i.category === filterCategory);
+            }
+
+            // Sort instructors alphabetically
+            filteredInstructors.sort((a,b) => a.name.localeCompare(b.name, 'ar'));
+
+            if (filteredInstructors.length === 0) return '<p class="text-center text-gray-500 mt-8">لا يوجد أعضاء يطابقون شروط البحث.</p>';
+
+            filteredInstructors.forEach(instructor => {
+                let hasClasses = false;
+                let instructorTableHtml = `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg"><h4 class="text-xl font-bold text-center mb-4 text-blue-600">${instructor.name}</h4><div class="table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>`;
+                instructorTableHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
+                
                 DAYS.forEach(day => {
-                    allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
+                    instructorTableHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
                     let time_cursor = 0;
                     while (time_cursor < TIME_SLOTS_HOURLY.length) {
                         const time = TIME_SLOTS_HOURLY[time_cursor];
-                        const apps = currentLocGrid[day][time].filter(app => !app.isContinuation);
-                        
-                        if (apps.length > 0) {
-                            const maxDuration = Math.max(...apps.map(app => app.duration || 1));
-                            allHtml += `<td class="p-1 border align-top h-20" colspan="${maxDuration}">`;
-                            allHtml += '<div class="flex flex-col gap-1">';
+                        let itemsInCell = [];
+
+                        // 1. Check normal schedules
+                        for (const levelName in savedSchedules) {
+                            if (filterLevel !== 'all' && levelName !== filterLevel) continue;
+                            const grid = savedSchedules[levelName];
+                            for (const locName in grid[day]?.[time] || {}) {
+                                const cell = grid[day][time][locName];
+                                if (cell && cell.instructor === instructor.name && !cell.isContinuation) {
+                                    itemsInCell.push({ ...cell, location: locName, level: levelName });
+                                }
+                            }
+                        }
+
+                        // 2. Check custom activities
+                        if (instructor.customActivities) {
+                            for(const actId in instructor.customActivities) {
+                                const act = instructor.customActivities[actId];
+                                if (act.day === day && act.time === time) {
+                                    itemsInCell.push({
+                                        id: actId,
+                                        type: 'custom',
+                                        name: act.text,
+                                        duration: act.duration,
+                                        location: act.location,
+                                        level: ''
+                                    });
+                                }
+                            }
+                        }
+
+                        const canEdit = userRole === 'admin';
+                        const addActivityClickHandler = canEdit ? `window.openCustomActivityModal('${instructor.id}', '${day}', ${time})` : '';
+
+                        if (itemsInCell.length > 0) {
+                            hasClasses = true;
+                            const duration = itemsInCell[0].duration || 1;
+                            instructorTableHtml += `<td class="p-1 border align-top" colspan="${duration}"><div class="drop-target h-full member-drop-target" data-instructor="${instructor.name}" data-day="${day}" data-time="${time}">`;
                             
-                            apps.forEach(cellData => {
-                                const contentHtml = `<p class="font-bold">${cellData.name || cellData.text}</p><p>${cellData.instructor}</p><p class="text-xs text-gray-500">${cellData.level}</p>`;
-                                const bgColor = cellData.color || courseColors[cellData.baseName] || '#e5e7eb';
-                                // Enable editing from Location View
-                                const clickHandler = canEdit 
-                                    ? (cellData.type === 'custom' 
-                                        ? `onclick="window.openCustomActivityModal('${instructors.find(i=>i.name===cellData.instructor)?.id}', '${day}', ${time}, '${cellData.id}')"`
-                                        : (cellData.type === 'custom_activity'
-                                            ? `onclick="window.openLevelActivityModal('${day}', ${time}, '${item.name}', '${cellData.id}', '${cellData.level}')"`
-                                            : `onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')"`
-                                          )
-                                    )
-                                    : '';
+                            itemsInCell.forEach(cellData => {
+                                const bgColor = cellData.type === 'custom' ? '#e5e7eb' : (courseColors[cellData.baseName] || '#e5e7eb');
+                                const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc');
                                 
-                                allHtml += `<div class="schedule-item text-[11px]" ${clickHandler} style="background-color: ${bgColor};">${contentHtml}</div>`;
+                                let clickHandler = '';
+                                if (canEdit) {
+                                    if (cellData.type === 'custom') {
+                                        clickHandler = `window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${cellData.id}')`;
+                                    } else {
+                                        clickHandler = `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${cellData.location}', '${cellData.level}')`;
+                                    }
+                                }
+                                
+                                instructorTableHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="${clickHandler}">`;
+                                instructorTableHtml += `<p class="font-bold">${cellData.name}</p>`;
+                                if(cellData.level) instructorTableHtml += `<p class="text-xs">${cellData.level}</p>`;
+                                if(cellData.location) instructorTableHtml += `<p class="font-semibold text-gray-600">${cellData.location}</p>`;
+                                instructorTableHtml += `</div>`;
                             });
                             
-                            allHtml += '</div></td>';
-
-                            // Mark continuation slots
-                            for(let d = 1; d < maxDuration; d++){
-                                const nextTime = time + d;
-                                apps.forEach(app => {
-                                    if(d < app.duration){
-                                        if(!currentLocGrid[day][nextTime]) currentLocGrid[day][nextTime] = [];
-                                        currentLocGrid[day][nextTime].push({...app, isContinuation: true});
-                                    }
-                                });
-                            }
-                            time_cursor += maxDuration;
+                            instructorTableHtml += `</div></td>`;
+                            time_cursor += duration;
                         } else {
-                            const addActivityClickHandler = userRole === 'admin' ? `onclick="window.openLocationActivityModal('${item.name}', '${day}', ${time})"` : '';
-                            allHtml += `<td class="p-1 border align-top h-20 empty-slot" ${addActivityClickHandler}></td>`;
+                            let isContinuation = false;
+                            for (const levelName in savedSchedules) {
+                                const grid = savedSchedules[levelName];
+                                for (const locName in grid[day]?.[time] || {}) {
+                                    if (grid[day][time][locName]?.instructor === instructor.name && grid[day][time][locName]?.isContinuation) {
+                                        isContinuation = true;
+                                        break;
+                                    }
+                                }
+                                if (isContinuation) break;
+                            }
+                            
+                            if (instructor.customActivities) {
+                                for(const actId in instructor.customActivities) {
+                                    const act = instructor.customActivities[actId];
+                                    if (act.day === day && time > act.time && time < act.time + act.duration) {
+                                        isContinuation = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!isContinuation) {
+                                instructorTableHtml += `<td class="p-0 border align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="drop-target h-full member-drop-target min-h-[50px]" data-instructor="${instructor.name}" data-day="${day}" data-time="${time}"></div></td>`;
+                            }
                             time_cursor++;
                         }
                     }
-                    allHtml += `</tr>`;
+                    instructorTableHtml += `</tr>`;
                 });
-                allHtml += '</tbody></table></div>';
-            });
-            allHtml += '</div>';
-            return allHtml;
-        }
-
-        function generateInstructorSchedulesHtml(searchQuery = '', filterCategory = 'all', filterLevel = 'all') {
-            let filteredInstructors = [...instructors]; 
-            // Sort Alphabetically
-            filteredInstructors.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-            
-            if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } 
-            if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
-            if (filterLevel !== 'all') {
-                const instructorsForLevel = new Set();
-                for (const levelName in savedSchedules) {
-                    if (levelName === filterLevel) {
-                        const grid = savedSchedules[levelName];
-                        for(const day in grid) for(const time in grid[day]) for(const loc in grid[day][time]) {
-                            const cell = grid[day][time][loc];
-                            if(cell && cell.instructor) instructorsForLevel.add(cell.instructor);
-                        }
-                    }
-                }
-                filteredInstructors = filteredInstructors.filter(inst => instructorsForLevel.has(inst.name));
-            }
-
-            if (!filteredInstructors.length) return '<p class="text-center text-gray-500">لا يوجد أعضاء مطابقون لمعايير البحث.</p>';
-            let allHtml = '';
-            INSTRUCTOR_CATEGORIES.forEach(category => {
-                const members = filteredInstructors.filter(inst => inst.category === category);
-                if (members.length > 0) {
-                    allHtml += `<h3 class="text-2xl font-bold text-center my-6 text-sky-700">${category}</h3>`;
-                    members.forEach(instructor => {
-                        let instructorGrid = {}; 
-                        DAYS.forEach(d => { instructorGrid[d] = {}; TIME_SLOTS_HOURLY.forEach(t => instructorGrid[d][t] = []); });
-                        
-                        for (const levelName in savedSchedules) { const grid = savedSchedules[levelName]; for (const day of DAYS) { for (const time of TIME_SLOTS_HOURLY) { for (const loc of locations) { const cell = grid[day]?.[time]?.[loc.name]; if (cell && cell.instructor === instructor.name) { instructorGrid[day][parseInt(time)].push({...cell, type: cell.type === 'custom_activity' ? 'custom' : 'course', location: loc.name, level: levelName }); } } } } }
-                        const customActivities = instructor.customActivities || {};
-                        for (const activityId in customActivities) {
-                            const activity = { id: activityId, ...customActivities[activityId] };
-                            if (instructorGrid[activity.day] && instructorGrid[activity.day][activity.time]) {
-                                instructorGrid[activity.day][activity.time].push({ type: 'custom', ...activity });
-                            }
-                        }
-                        const canEdit = userRole === 'admin';
-                        allHtml += `<div class="mb-10 bg-white p-4 sm:p-6 rounded-xl shadow-lg"> <h4 class="text-xl font-bold text-center mb-4 text-sky-600">${instructor.name}</h4> <div class="table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h5 class="font-bold text-center text-md mb-2 text-gray-700">الجدول التفصيلي</h5> <table class="w-full text-sm text-center border-collapse"> <thead><tr class="bg-gray-100"> <th class="p-2 border">اليوم</th> ${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono">${formatTimeSlot(t)}</th>`).join('')} </tr></thead><tbody>`;
-                        DAYS.forEach(day => {
-                            allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`; 
-                            let time_cursor = 0;
-                            while (time_cursor < TIME_SLOTS_HOURLY.length) {
-                                const time = TIME_SLOTS_HOURLY[time_cursor];
-                                const apps = instructorGrid[day][time].filter(app => !app.isContinuation);
-                                
-                                const addActivityBtn = canEdit ? `<div class="add-concurrent-btn" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"><i class="fas fa-plus"></i></div>` : '';
-                                const emptySlotClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"` : '';
-                                
-                                if (apps.length > 0) {
-                                    const maxDuration = Math.max(...apps.map(app => app.duration || 1));
-                                    allHtml += `<td class="p-1 border align-top occupied-slot" colspan="${maxDuration}" style="position: relative;">`;
-                                    allHtml += addActivityBtn;
-                                    allHtml += '<div class="flex flex-col gap-1">';
-                                    apps.forEach(app => {
-                                        const bgColor = app.color || courseColors[app.baseName] || (app.type === 'custom' ? '#e5e7eb' : '#f3f4f6');
-                                        let contentHtml = '';
-                                        const scheduleItemClick = canEdit ? `onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')"` : '';
-                                        const customActivityClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.id}')"` : '';
-                                        const draggableAttr = canEdit ? 'draggable="true"' : '';
-
-                                        if (app.type === 'course') { 
-                                            contentHtml = `<div class="schedule-item text-[9px]" ${scheduleItemClick} style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; 
-                                        } else { // Custom activity
-                                            contentHtml = `<div class="schedule-item text-[9px]" ${draggableAttr} data-type="activity" data-activity-id="${app.id}" data-instructor-id="${instructor.id}" ${customActivityClick} style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; 
-                                        }
-                                        allHtml += contentHtml;
-                                    });
-                                    allHtml += `</div></td>`;
-                                    
-                                    for(let d=1; d < maxDuration; d++){
-                                        const nextTime = time + d;
-                                        apps.forEach(app => {
-                                            if(d < app.duration){
-                                                if(!instructorGrid[day][nextTime]) instructorGrid[day][nextTime] = [];
-                                                instructorGrid[day][nextTime].push({...app, isContinuation: true});
-                                            }
-                                        });
-                                    }
-                                    time_cursor += maxDuration;
-                                } else {
-                                    allHtml += `<td class="p-2 border empty-slot" ${emptySlotClick}></td>`;
-                                    time_cursor++;
-                                }
-                            }
-                            allHtml += `</tr>`;
-                        });
-                        allHtml += `</tbody></table></div> ${generateMirrorTableHtml(instructor)} </div>`;
-                    });
+                instructorTableHtml += `</tbody></table></div> ${generateMirrorTableHtml(instructor)}</div>`;
+                
+                if (hasClasses || filterLevel === 'all') {
+                    html += instructorTableHtml;
                 }
             });
-            return allHtml;
+
+            return html;
         }
 
         function generateMirrorTableHtml(instructor) {
@@ -2473,7 +3018,6 @@
             const summaryRows = [];
             const timeSlotMap = new Map();
 
-            // Populate timeSlotMap from courses in schedules
             for (const levelName in savedSchedules) {
                 const grid = savedSchedules[levelName];
                 for (const day in grid) {
@@ -2490,7 +3034,6 @@
                 }
             }
 
-            // Populate timeSlotMap from personal custom activities
             const customActivities = instructor.customActivities || {};
             for (const id in customActivities) {
                 const activity = { id, type: 'custom', ...customActivities[id] };
@@ -2499,7 +3042,6 @@
                 timeSlotMap.get(mapKey).push(activity);
             }
 
-            // Process sorted slots to build summary and calculate hours
             const processedItems = new Set();
             const sortedSlotKeys = Array.from(timeSlotMap.keys()).sort((a, b) => {
                 const [dayA, timeA] = a.split('-');
@@ -2529,7 +3071,6 @@
                 });
             }
 
-            // Calculate total hours based on non-overlapping time slots
             let totalHoursSummary = 0;
             const processedTimeSlots = new Set();
             for (const key of sortedSlotKeys) {
@@ -2556,571 +3097,209 @@
             </div>`;
         }
 
+        function formatTimeSlot(time) {
+    // خريطة لربط الأرقام البرمجية بالنصوص الجديدة المطلوبة
+    const timeMap = {
+        8: "8:00-9:00",
+        9: "9:00-10:00",
+        10: "10:00-11:00",
+        11: "11:00-12:00",
+        12: "12:00-1:00",
+        13: "1:00-2:00",
+        14: "2:00-3:00",
+        15: "3:00-4:00",
+        16: "4:00-5:00",
+        17: "5:00-6:00"
+    };
+    
+    return timeMap[time] || `${time}:00`;
+}
 
-        function addDragAndDropListeners(containerSelector) { document.querySelectorAll(`${containerSelector} .schedule-item[draggable="true"]`).forEach(item => item.addEventListener('dragstart', handleDragStart)); document.querySelectorAll(`${containerSelector} .drop-target`).forEach(target => { target.addEventListener('dragover', e => e.preventDefault()); target.addEventListener('dragenter', e => e.target.closest('.drop-target')?.classList.add('drag-over')); target.addEventListener('dragleave', e => e.target.closest('.drop-target')?.classList.remove('drag-over')); target.addEventListener('drop', handleDrop); }); }
-        function handleDragStart(e) { draggedItem = e.target.closest('.schedule-item'); setTimeout(() => { if(draggedItem) draggedItem.style.opacity = '0.5'; }, 0); }
-        
-        function addMemberViewDragDropListeners() {
-            document.querySelectorAll('#members-view-content .schedule-item[draggable="true"]').forEach(item => {
-                item.addEventListener('dragstart', handleDragStart);
-            });
-            document.querySelectorAll('#members-view-content .empty-slot').forEach(target => {
-                target.addEventListener('dragover', e => e.preventDefault());
-                target.addEventListener('dragenter', e => e.target.classList.add('drag-over'));
-                target.addEventListener('dragleave', e => e.target.classList.remove('drag-over'));
-                target.addEventListener('drop', handleMemberViewDrop);
-            });
+        function generateHslColor(str, isBorder = false) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            const h = Math.abs(hash) % 360;
+            return `hsl(${h}, 70%, ${isBorder ? '60%' : '85%'})`;
         }
-        
-        async function handleMemberViewDrop(e) {
-            e.preventDefault();
-            if (!draggedItem) return;
 
-            const targetCell = e.target.closest('.empty-slot');
-            draggedItem.style.opacity = '1';
-            targetCell.classList.remove('drag-over');
-
-            const dataType = draggedItem.dataset.type;
-            if (dataType !== 'activity') {
-                showToast("يمكن نقل الأنشطة المخصصة فقط في هذا العرض.", "error");
-                draggedItem = null;
-                return;
-            }
+        window.copyTableToClipboard = (btn) => {
+            const container = btn.closest('.table-container');
+            const table = container.querySelector('table');
             
-            const activityId = draggedItem.dataset.activityId;
-            const instructorId = draggedItem.dataset.instructorId;
-
-            const onclickAttr = targetCell.getAttribute('onclick');
-            const match = onclickAttr.match(/'([^']*)',\s*(\d+)/);
-            if (!match) {
-                draggedItem = null;
-                return;
-            }
-            const newDay = match[1];
-            const newTime = parseInt(match[2]);
-
-            const instructor = instructors.find(i => i.id === instructorId);
-            const activity = instructor.customActivities[activityId];
-
-            let isConflict = false;
-            for (let i = 0; i < activity.duration; i++) {
-                for (const levelName in savedSchedules) {
-                    const grid = savedSchedules[levelName];
-                    for (const loc in grid[newDay]?.[newTime + i] || {}) {
-                        if (grid[newDay][newTime + i][loc]?.instructor === instructor.name) {
-                            isConflict = true; break;
-                        }
-                    }
-                    if(isConflict) break;
-                }
-                if(isConflict) break;
-                for (const actId in instructor.customActivities) {
-                    if (actId === activityId) continue;
-                    const otherActivity = instructor.customActivities[actId];
-                    if (otherActivity.day === newDay && (newTime + i >= otherActivity.time && newTime + i < otherActivity.time + otherActivity.duration)) {
-                        isConflict = true; break;
-                    }
-                }
-                if(isConflict) break;
-            }
-
-            if (isConflict) {
-                showToast("لا يمكن النقل: يوجد تعارض في التوقيت.", "error");
-            } else {
-                const instructorRef = doc(db, instructorsCol.path, instructorId);
-                const updates = {};
-                updates[`customActivities.${activityId}.day`] = newDay;
-                updates[`customActivities.${activityId}.time`] = newTime;
-                await updateDoc(instructorRef, updates);
-                showToast("تم نقل النشاط بنجاح.");
-            }
+            const clone = table.cloneNode(true);
             
-            draggedItem = null;
-        }
-
-
-        async function handleDrop(e) {
-            e.preventDefault();
-            if (!draggedItem) return;
-
-            const targetCell = e.target.closest('.drop-target');
-            draggedItem.style.opacity = '1';
-
-            if (!targetCell) {
-                draggedItem = null;
-                return;
-            }
-            targetCell.classList.remove('drag-over');
-
-            const sourceInfo = {
-                id: draggedItem.dataset.courseId,
-                day: draggedItem.dataset.day,
-                time: parseInt(draggedItem.dataset.time),
-                location: draggedItem.dataset.location
-            };
-
-            const targetDay = targetCell.dataset.day;
-            const targetTime = parseInt(targetCell.dataset.time);
-            const targetItemElement = e.target.closest('.schedule-item');
+            const el = document.createElement('div');
+            el.appendChild(clone);
+            document.body.appendChild(el);
             
-            // Case 1: Drop onto another item
-            if (targetItemElement && targetItemElement !== draggedItem) {
-                 const targetInfo = {
-                    id: targetItemElement.dataset.courseId,
-                    day: targetItemElement.dataset.day,
-                    time: parseInt(targetItemElement.dataset.time),
-                    location: targetItemElement.dataset.location
-                };
-                
-                dropContext = { sourceInfo, targetInfo };
-
-                const selectedLevel = dom.levelFilterSelect.value;
-                const grid = savedSchedules[selectedLevel];
-                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-                if(sourceCourse) {
-                    const availableSlot = findEmptySlotAtTime(targetDay, targetTime, sourceCourse, grid);
-                    dom.dropActionModal.insertBtn.disabled = !availableSlot;
-                } else {
-                     dom.dropActionModal.insertBtn.disabled = true;
-                }
-
-                dom.dropActionModal.modal.style.display = 'block';
-
-            } 
-            // Case 2: Drop into an empty slot (move)
-            else {
-                const selectedLevel = dom.levelFilterSelect.value;
-                let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-
-                if (!sourceCourse) {
-                    showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
-                    draggedItem = null;
-                    return;
-                }
-                
-                // Find an available location of the correct type at the target time
-                const availableLocationsForDrop = locations.filter(loc => {
-                    if (loc.type !== sourceCourse.requiredLocationType) return false;
-                    let isFree = true;
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (grid[targetDay]?.[targetTime + i]?.[loc.name]) {
-                            isFree = false;
-                            break;
-                        }
-                    }
-                    return isFree;
-                });
-
-                const targetLocation = availableLocationsForDrop.length > 0 ? availableLocationsForDrop[0].name : null;
-
-
-                if (targetLocation) {
-                    // Perform the move: 1. Delete from old position
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (grid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
-                            delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                        }
-                    }
-                    // 2. Add to new position
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (!grid[targetDay]) grid[targetDay] = {};
-                        if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
-                        grid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
-                    }
-                    await saveScheduleToFirebase(selectedLevel, grid);
-                    showToast("تم نقل المقرر بنجاح!");
-                } else {
-                    showToast(`فشل النقل: لا يوجد مكان فارغ من نوع "${sourceCourse.requiredLocationType}" في هذا التوقيت.`, "error");
-                }
-            }
-            draggedItem = null;
-        }
-
-        function findEmptySlotAtTime(day, time, course, grid) {
-            const suitableLocations = locations.filter(l => l.type === course.requiredLocationType);
-            for (const loc of suitableLocations) {
-                let isFree = true;
-                for (let i = 0; i < course.duration; i++) {
-                    if (grid[day]?.[time + i]?.[loc.name]) {
-                        isFree = false;
-                        break;
-                    }
-                }
-                if (isFree) return loc.name;
-            }
-            return null;
-        }
-
-        async function handleSwapAction() {
-            if (!dropContext) return;
-            const { sourceInfo, targetInfo } = dropContext;
-            const selectedLevel = dom.levelFilterSelect.value;
-            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-            const targetCourse = grid[targetInfo.day]?.[targetInfo.time]?.[targetInfo.location];
-
-            if (!sourceCourse || !targetCourse) {
-                showToast("خطأ: لم يتم العثور على أحد المقررين.", "error");
-                closeDropModal();
-                return;
-            }
-
-            if (sourceCourse.duration !== targetCourse.duration) {
-                showToast("لا يمكن تبديل مقررين بمدة مختلفة.", "error");
-                closeDropModal();
-                return;
-            }
-
-            for (let i = 0; i < sourceCourse.duration; i++) {
-                delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                delete grid[targetInfo.day][targetInfo.time + i][targetInfo.location];
-            }
-            for (let i = 0; i < sourceCourse.duration; i++) {
-                grid[targetInfo.day][targetInfo.time + i][targetInfo.location] = { ...sourceCourse, isContinuation: i > 0 };
-                grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = { ...targetCourse, isContinuation: i > 0 };
-            }
-
-            await saveScheduleToFirebase(selectedLevel, grid);
-            showToast("تم التبديل بنجاح!");
-            closeDropModal();
-        }
-
-        async function handleInsertTogetherAction() {
-            if (!dropContext) return;
-            const { sourceInfo, targetInfo } = dropContext;
-            const selectedLevel = dom.levelFilterSelect.value;
-            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-            if (!sourceCourse) {
-                showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
-                closeDropModal();
-                return;
-            }
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            selection.removeAllRanges();
+            selection.addRange(range);
             
-            const newLocation = findEmptySlotAtTime(targetInfo.day, targetInfo.time, sourceCourse, grid);
-
-            if (newLocation) {
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                }
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    if (!grid[targetInfo.day]) grid[targetInfo.day] = {};
-                    if (!grid[targetInfo.day][targetInfo.time + i]) grid[targetInfo.day][targetInfo.time + i] = {};
-                    grid[targetInfo.day][targetInfo.time + i][newLocation] = { ...sourceCourse, isContinuation: i > 0 };
-                }
-
-                await saveScheduleToFirebase(selectedLevel, grid);
-                showToast("تم إدراج المقررين معًا بنجاح.");
-            } else {
-                showToast("لا يوجد مكان فارغ ومناسب في هذا التوقيت.", "error");
-            }
-            
-            closeDropModal();
-        }
-        
-        function closeDropModal() {
-            dom.dropActionModal.modal.style.display = 'none';
-            dropContext = null;
-            displaySchedule();
-        }
-
-
-        function handleSaveBackup() {
-            const dataToSave = { levels, subjects, instructors, locations, courses, groups, savedSchedules };
-            const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {type: "application/json"});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = `schedule_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
-        }
-
-        function handleExportReport() {
-            let reportHtml = `
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>تقرير الجداول الدراسي</title>
-    <script src="https://cdn.tailwindcss.com"><\/script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Cairo', sans-serif; padding: 20px; }
-        .schedule-item { padding: 4px; border-radius: 6px; margin-bottom: 4px; color: #1f2937; box-shadow: 0 2px 4px rgba(0,0,0,0.05); line-height: 1.3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .session-lab { border-left: 4px solid #14b8a6 !important; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; page-break-inside: auto; }
-        tr { page-break-inside: avoid; page-break-after: auto; }
-        thead { display: table-header-group; }
-        th, td { border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 12px; }
-        th { background-color: #f2f2f2; }
-        h1, h2, h3, h4 { text-align: center; margin-top: 40px; margin-bottom: 20px; color: #333; page-break-after: avoid; }
-        .page-break { page-break-before: always; }
-        @media print {
-            #printBtn { display: none; }
-        }
-    </style>
-</head>
-<body>
-    <button id="printBtn" onclick="window.print()" style="position: fixed; top: 10px; left: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 100;">طباعة</button>
-    <h1>تقرير الجداول الدراسي الشامل</h1>
-    <p style="text-align: center; color: #666; margin-bottom: 40px;">تم إنشاؤه بتاريخ: ${new Date().toLocaleString('ar-EG')}</p>
-    `;
-
-            // Section 1: Level Schedules
-            reportHtml += '<div class="page-break"><h2>جداول الفرق الدراسية</h2></div>';
-            levels.forEach(level => {
-                if (savedSchedules[level.name]) {
-                    reportHtml += generateScheduleHTMLForLevel(level.name);
-                }
-            });
-
-            // Section 2: Location Schedules
-            reportHtml += '<div class="page-break"><h2>جداول الأماكن</h2></div>';
-            for (const type in LOCATION_TYPES) {
-                reportHtml += generateAggregatedLocationTableHtml(type, `جداول ${LOCATION_TYPES[type]}`);
-            }
-
-            // Section 3: Member Schedules
-            reportHtml += '<div class="page-break"><h2>جداول الأعضاء</h2></div>';
-            reportHtml += generateInstructorSchedulesHtml('', 'all', 'all');
-
-            reportHtml += '</body></html>';
-
-            const blob = new Blob([reportHtml], { type: "text/html;charset=utf-8" });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `report_schedules_${new Date().toISOString().slice(0,10)}.html`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-        }
-
-        function generateScheduleHTMLForLevel(level) {
-            if (!level || !savedSchedules[level]) return '';
-
-            let gridForLevel = savedSchedules[level];
-
-            let tableHtml = `<div class="table-container my-8">
-                                <h3 class="text-2xl font-bold text-center mb-4 text-gray-700">الجدول الدراسي - ${level}</h3>`;
-            tableHtml += '<table class="w-full border-collapse">';
-            tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
-            
-            DAYS.forEach(day => {
-                tableHtml += `<tr class="text-center"><td class="p-2 border border-gray-300 font-semibold align-middle bg-gray-50">${day}</td>`;
-                let time_cursor = 0;
-                while (time_cursor < TIME_SLOTS_HOURLY.length) {
-                    const time = TIME_SLOTS_HOURLY[time_cursor];
-                    let itemsInCell = locations.map(loc => ({ locName: loc.name, data: gridForLevel[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
-                    
-                    itemsInCell.sort((a, b) => {
-                        if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
-                        if (a.data.type !== 'lecture' && b.data.type === 'lecture') return 1;
-                        return 0;
-                    });
-                    
-                    if (itemsInCell.length > 0) {
-                        const maxDuration = Math.max(...itemsInCell.map(item => item.data.duration || 1));
-                        const containerClass = itemsInCell.length > 1 ? 'multi-item-container' : '';
-                        tableHtml += `<td class="p-1 border border-gray-300 align-top" colspan="${maxDuration}">`;
-                        tableHtml += `<div class="${containerClass} flex flex-col gap-1">`;
-                        itemsInCell.forEach(item => { 
-                            const { locName, data: cellData } = item; 
-                            const sessionClass = cellData.type === 'lab' ? 'session-lab' : '';
-                             if (cellData.type === 'custom_activity') {
-                                const bgColor = cellData.color || '#e5e7eb';
-                                tableHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`;
-                            } else {
-                                const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; 
-                                const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); 
-                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
-                            }
-                        });
-                        tableHtml += `</div></td>`;
-                        time_cursor += maxDuration;
-                    } else { 
-                        const isContinuationSlot = locations.some(loc => gridForLevel[day]?.[time]?.[loc.name]?.isContinuation); 
-                        if (!isContinuationSlot) { 
-                            tableHtml += `<td class="p-0 border border-gray-300 align-top h-20"></td>`; 
-                        } 
-                        time_cursor++; 
-                    }
-                }
-                tableHtml += `</tr>`;
-            });
-            tableHtml += '</tbody></table></div>';
-            return tableHtml;
-        }
-
-        async function handleLoadScheduleFromFile(e) {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                await showConfirmModal("سيؤدي هذا إلى حذف جميع البيانات الحالية. هل أنت متأكد؟", async () => {
-                    try {
-                        await handleReset(false);
-                        const data = JSON.parse(event.target.result);
-                        const batch = writeBatch(db);
-                        (data.levels || []).forEach(item => batch.set(doc(levelsCol), item));
-                        (data.groups || []).forEach(item => batch.set(doc(groupsCol), item));
-                        (data.subjects || []).forEach(item => batch.set(doc(subjectsCol), item));
-                        (data.instructors || []).forEach(item => batch.set(doc(instructorsCol), item));
-                        (data.locations || []).forEach(item => batch.set(doc(locationsCol), item));
-                        (data.courses || []).forEach(item => batch.set(doc(coursesCol), item));
-                        if (data.savedSchedules) { for (const level in data.savedSchedules) { batch.set(doc(schedulesCol, level), { grid: JSON.stringify(data.savedSchedules[level]) }); } }
-                        await batch.commit();
-                        showToast("تم استيراد البيانات بنجاح!");
-                    } catch (error) { console.error("Error loading file:", error); showToast("ملف غير صالح.", "error"); }
-                });
-            };
-            reader.readAsText(file); e.target.value = '';
-        }
-        async function handleReset(confirmed = false) {
-            if(!confirmed) {
-                const batch = writeBatch(db);
-                const collections = [levelsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, groupsCol];
-                for (const col of collections) { const snapshot = await getDocs(query(col)); snapshot.docs.forEach(doc => batch.delete(doc.ref)); }
-                await batch.commit();
-                return;
-            }
-            const batch = writeBatch(db);
-            const collections = [levelsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, groupsCol];
-            for (const col of collections) { const snapshot = await getDocs(query(col)); snapshot.docs.forEach(doc => batch.delete(doc.ref)); }
-            await batch.commit();
-            scheduleGrid = {}; savedSchedules = {};
-            dom.scheduleOutput.innerHTML = ''; dom.unscheduledOutput.innerHTML = '';
-            dom.customScheduleOutput.innerHTML = '';
-            showToast("تم حذف جميع البيانات والبدء من جديد.");
-        }
-
-        window.handleUpdateMaxConcurrentSections = async (levelId) => {
-             const inputElement = document.getElementById(`max-concurrent-${levelId}`);
-             if (!inputElement) return;
-             const value = inputElement.value;
-             const max = value === '' ? null : parseInt(value);
-             
-             const button = inputElement.nextElementSibling;
-             toggleButtonLoading(button, true);
-
-             try {
-                const levelRef = doc(db, levelsCol.path, levelId);
-                await updateDoc(levelRef, { maxConcurrentSections: max });
-                showToast("تم حفظ الحد الأقصى للسكاشن.");
-             } catch(error) {
-                console.error("Error updating max concurrent sections:", error);
-                showToast("حدث خطأ أثناء الحفظ.", "error");
-             } finally {
-                toggleButtonLoading(button, false);
-             }
-        };
-
-        function generateAdvancedLevelsHTML() {
-            const canEdit = userRole === 'admin';
-            const buttonsHtml = (l) => canEdit ? `<div class="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2"> <div class="flex-grow"> <label for="max-concurrent-${l.id}" class="text-xs font-bold text-gray-500">أقصى عدد سكاشن متزامنة</label> <div class="flex items-center gap-2 mt-1"> <input type="number" id="max-concurrent-${l.id}" min="1" placeholder="غير محدد" value="${l.maxConcurrentSections || ''}" class="w-24 p-2 border rounded-md"> <button onclick="window.handleUpdateMaxConcurrentSections('${l.id}')" class="bg-green-500 text-white font-bold p-2 px-3 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-save"></i></button> </div> </div> <div class="flex items-center gap-2 border-t sm:border-t-0 sm:border-r pt-2 sm:pt-0 sm:pr-4 mt-2 sm:mt-0"> <button onclick="window.openEditModal('level', '${l.id}')" title="تعديل اسم الفرقة" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('level', '${l.id}')" title="حذف الفرقة" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div> </div>` : '';
-
-            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للفرق الدراسية</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <input type="text" id="adv-level-search" placeholder="ابحث عن فرقة..." class="w-full p-3 border rounded-md mb-6"> <div id="adv-levels-list" class="space-y-4"> ${levels.map(l => ` <div class="list-item flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg shadow-sm gap-4" data-id="${l.id}"> <p class="font-semibold text-md">${l.name}</p> ${buttonsHtml(l)} </div> `).join('')} </div> </div> `;
-        }
-        function renderAdvancedInstructorsView(searchQuery = '', filterCategory = 'all') {
-            dom.advancedInstructorsView.innerHTML = generateAdvancedInstructorsHTML(searchQuery, filterCategory);
-            if(userRole === 'admin') {
-                document.getElementById('adv-instructor-search').addEventListener('input', (e) => { const currentCategory = document.querySelector('input[name="adv-category"]:checked').value; renderAdvancedInstructorsView(e.target.value, currentCategory); });
-                document.querySelectorAll('input[name="adv-category"]').forEach(radio => { radio.addEventListener('change', (e) => { const currentSearch = document.getElementById('adv-instructor-search').value; renderAdvancedInstructorsView(currentSearch, e.target.value); }); });
-                document.getElementById('adv-instructor-form').addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const nameInput = document.getElementById('adv-instructor-name-input');
-                    const name = nameInput.value.trim();
-                    if (name && !instructors.some(i => i.name === name)) {
-                        await handleAddWithLoading(e, instructorsCol, { name, category: document.getElementById('adv-instructor-category-select').value, availableTimes: {}, customActivities: {} }, "تمت إضافة العضو بنجاح!");
-                    } else { showToast("الاسم موجود بالفعل أو غير صالح.", "error"); }
-                });
-            }
-        }
-        window.handleUpdateInstructorCategory = async (instructorId) => {
-            if (userRole === 'guest') return;
-            const selectElement = document.getElementById(`category-select-${instructorId}`);
-            if (!selectElement) return;
-            const newCategory = selectElement.value;
-            const button = selectElement.nextElementSibling;
-            toggleButtonLoading(button, true);
-            try {
-                const instructorRef = doc(db, instructorsCol.path, instructorId);
-                await updateDoc(instructorRef, { category: newCategory });
-                showToast("تم تحديث فئة العضو بنجاح!");
-            } catch (error) {
-                console.error("Error updating category:", error);
-                showToast("حدث خطأ أثناء التحديث.", "error");
-            } finally {
-                toggleButtonLoading(button, false);
-            }
-        };
-        function getInstructorLoad(instructorName) {
-            const assignedCourses = []; const countedCourses = new Set(); let totalHours = 0;
-            for (const course of courses) {
-                if (course.instructor === instructorName) {
-                    const subject = subjects.find(s => s.name === course.baseName);
-                    if (subject) {
-                        const uniqueCourseId = course.id;
-                        if (!countedCourses.has(uniqueCourseId)) {
-                             assignedCourses.push({ name: course.name, level: subject.academicLevel, hours: course.duration });
-                            totalHours += course.duration;
-                            countedCourses.add(uniqueCourseId);
-                        }
-                    }
-                }
-            }
-            return { courses: assignedCourses, totalHours };
-        }
-        function generateAdvancedInstructorsHTML(searchQuery = '', filterCategory = 'all') {
-            let filteredInstructors = instructors; 
-            // Sort Alphabetically here too
-            filteredInstructors.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
-
-            if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
-            const canEdit = userRole === 'admin';
-            const addInstructorForm = canEdit ? `<div class="md:col-span-2"> <form id="adv-instructor-form" class="p-4 border rounded-lg bg-gray-50 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end"> <div class="sm:col-span-2 grid grid-cols-2 gap-4"> <div> <label class="font-bold text-sm">اسم العضو الجديد</label> <input type="text" id="adv-instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md mt-1" required> </div> <div> <label class="font-bold text-sm">الفئة</label> <select id="adv-instructor-category-select" class="w-full p-2 border rounded-md mt-1"> ${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}">${cat}</option>`).join('')} </select> </div> </div> <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 h-10 flex items-center justify-center">إضافة عضو</button> </form> </div>` : '<div class="md:col-span-2"></div>';
-
-            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للأعضاء</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"> ${addInstructorForm} <div class="p-4 border rounded-lg bg-gray-50"> <label class="font-bold text-sm">ابحث بالاسم...</label> <input type="text" id="adv-instructor-search" placeholder="بحث..." class="w-full p-2 border rounded-md mt-1" value="${searchQuery}"> </div> </div> <div class="mb-6 flex flex-wrap gap-4 justify-center"> <label class="flex items-center"><input type="radio" name="adv-category" value="all" class="ml-2" ${filterCategory === 'all' ? 'checked' : ''}> الكل</label> ${INSTRUCTOR_CATEGORIES.map(cat => `<label class="flex items-center"><input type="radio" name="adv-category" value="${cat}" class="ml-2" ${filterCategory === cat ? 'checked' : ''}> ${cat}</label>`).join('')} </div> <div id="adv-instructors-list" class="space-y-4"> ${filteredInstructors.length ? filteredInstructors.map(instructor => { const load = getInstructorLoad(instructor.name); const buttonsHtml = canEdit ? `<div class="flex items-center gap-2 mt-2"> <select id="category-select-${instructor.id}" class="p-1 border rounded-md text-sm bg-white">${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}" ${instructor.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}</select> <button onclick="window.handleUpdateInstructorCategory('${instructor.id}')" class="bg-green-500 text-white font-bold py-1 px-3 rounded-md hover:bg-green-600 text-sm flex items-center justify-center">حفظ</button> </div>` : `<p class="text-sm text-gray-600 mt-2">${instructor.category}</p>`; const editDeleteButtons = canEdit ? `<div class="flex items-center gap-2"> <button onclick="window.openEditModal('instructor', '${instructor.id}')" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('instructor', '${instructor.id}')" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div>` : ''; return ` <div class="border rounded-lg overflow-hidden shadow-sm"> <div class="p-4 bg-gray-50 flex justify-between items-start"> <div> <h4 class="font-bold text-lg">${instructor.name}</h4> ${buttonsHtml} </div> ${editDeleteButtons} </div> <div class="p-4"> <h5 class="font-bold text-md mb-2 text-gray-700">المقررات المسندة:</h5> ${load.courses.length ? ` <table class="w-full text-sm text-right"> <thead class="bg-gray-100 text-gray-600"> <tr> <th class="p-2">اسم المقرر</th> <th class="p-2">الفرقة</th> </tr> </thead> <tbody> ${load.courses.map(c => ` <tr class="border-b"> <td class="p-2 font-semibold">${c.name}</td> <td class="p-2">${c.level}</td> </tr> `).join('')} </tbody> <tfoot> <tr class="font-bold bg-gray-50 border-t"> <td class="p-2">الإجمالي</td> <td class="p-2">${load.totalHours} ساعة</td> </tr> </tfoot> </table> ` : '<p class="text-center text-gray-500">لم يتم إسناد أي مقررات لهذا العضو بعد.</p>'} </div> </div> `; }).join('') : '<p class="text-center text-gray-500 mt-8">لا يوجد أعضاء مطابقون لمعايير البحث.</p>'} </div> </div> `;
-        }
-        function formatTimeSlot(startHour, duration = 1) { const endHour = startHour + duration; const format12 = (hour) => { const ampm = hour >= 12 && hour < 24 ? 'م' : 'ص'; const h = hour % 12 || 12; return `${h} ${ampm}`; }; if (duration === 1) { return `${format12(startHour)} - ${format12(endHour)}`; } return `${format12(startHour)} - ${format12(endHour)}`; }
-        function generateHslColor(str, asHex = false) {
-            let hash = 0; if (!str) return asHex ? '#e5e7eb' : 'hsl(0, 0%, 90%)';
-            for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); }
-            const h = hash % 360; const s = 75; const l = 85;
-            if (asHex) { let s_norm = s / 100; let l_norm = l / 100; let c = (1 - Math.abs(2 * l_norm - 1)) * s_norm, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l_norm - c/2, r = 0, g = 0, b = 0; if (0 <= h && h < 60) { r = c; g = x; b = 0; } else if (60 <= h && h < 120) { r = x; g = c; b = 0; } else if (120 <= h && h < 180) { r = 0; g = c; b = x; } else if (180 <= h && h < 240) { r = 0; g = x; b = c; } else if (240 <= h && h < 300) { r = x; g = 0; b = c; } else if (300 <= h && h < 360) { r = c; g = 0; b = x; } r = Math.round((r + m) * 255).toString(16); g = Math.round((g + m) * 255).toString(16); b = Math.round((b + m) * 255).toString(16); if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b; return `#${r}${g}${b}`; }
-            return `hsl(${h}, ${s}%, ${l}%)`;
-        }
-
-        window.copyTableToClipboard = (button) => {
-            const tableContainer = button.closest('.table-container');
-            const table = tableContainer.querySelector('table');
-            if (!table) return;
-
-            let tableText = '';
-            const rows = table.rows;
-            for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-                let rowText = '';
-                for (let j = 0; j < row.cells.length; j++) {
-                    const cell = row.cells[j];
-                    let cellContent = cell.innerText.replace(/\s\s+/g, ' ').trim();
-                    rowText += cellContent + '\t'.repeat(cell.colSpan);
-                }
-                tableText += rowText.trim() + '\n';
-            }
-
-            const textArea = document.createElement('textarea');
-            textArea.value = tableText;
-            document.body.appendChild(textArea);
-            textArea.select();
             try {
                 document.execCommand('copy');
-                showToast('تم نسخ الجدول بنجاح!');
+                showToast('تم نسخ الجدول للحافظة!');
             } catch (err) {
-                showToast('فشل نسخ الجدول.', 'error');
+                showToast('حدث خطأ أثناء النسخ', 'error');
             }
-            document.body.removeChild(textArea);
+            
+            selection.removeAllRanges();
+            document.body.removeChild(el);
+        };
+
+        // Advanced Views Generators
+        function generateAdvancedLevelsHTML() {
+            let html = `<div class="bg-white p-6 rounded-xl shadow-md"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للفرق الدراسية</h2><button onclick="window.showMainView()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg"><i class="fas fa-arrow-right mr-2"></i>عودة للرئيسية</button></div>`;
+            html += `<input type="text" id="adv-level-search" placeholder="بحث عن فرقة..." class="w-full p-3 border rounded-lg mb-6 shadow-sm focus:ring-2 focus:ring-sky-500 outline-none">`;
+            html += `<div id="adv-levels-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+            
+            levels.forEach(level => {
+                html += `<div class="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow bg-gray-50 flex flex-col justify-between h-full">`;
+                html += `<div><p class="font-bold text-lg text-sky-700 mb-2 border-b pb-2">${level.name}</p>`;
+                
+                const levelGroups = groups.filter(g => g.academicLevel === level.name);
+                html += `<p class="text-sm text-gray-600 mb-1"><strong>المجموعات:</strong> ${levelGroups.length > 0 ? levelGroups.map(g => g.name).join('، ') : 'لا يوجد'}</p>`;
+                
+                const levelSubjects = subjects.filter(s => s.academicLevel === level.name);
+                html += `<p class="text-sm text-gray-600 mb-4"><strong>المواد:</strong> ${levelSubjects.length > 0 ? levelSubjects.map(s => s.name).join('، ') : 'لا يوجد'}</p></div>`;
+                
+                html += `<div class="flex justify-end gap-2 mt-auto pt-4 border-t border-gray-200">
+                            <button onclick="window.openEditModal('level', '${level.id}')" class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-3 py-1 rounded text-sm font-semibold transition-colors"><i class="fas fa-edit mr-1"></i> تعديل</button>
+                            <button onclick="window.deleteItem('level', '${level.id}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded text-sm font-semibold transition-colors"><i class="fas fa-trash mr-1"></i> حذف</button>
+                        </div></div>`;
+            });
+            
+            html += `</div></div>`;
+            return html;
         }
 
+        function renderAdvancedInstructorsView() {
+            let html = `<div class="bg-white p-6 rounded-xl shadow-md"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للأعضاء</h2><button onclick="window.showMainView()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg"><i class="fas fa-arrow-right mr-2"></i>عودة للرئيسية</button></div>`;
+            html += `<input type="text" id="adv-instructor-search" placeholder="بحث عن عضو..." class="w-full p-3 border rounded-lg mb-6 shadow-sm focus:ring-2 focus:ring-sky-500 outline-none">`;
+            html += `<div id="adv-instructors-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+            
+            instructors.sort((a,b) => a.name.localeCompare(b.name, 'ar')).forEach(instructor => {
+                html += `<div class="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow bg-gray-50 flex flex-col justify-between h-full">`;
+                html += `<div><p class="font-bold text-lg text-sky-700 mb-2 border-b pb-2">${instructor.name}</p>`;
+                html += `<p class="text-sm text-gray-600 mb-4"><span class="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mr-2">${instructor.category}</span></p></div>`;
+                
+                html += `<div class="flex justify-end gap-2 mt-auto pt-4 border-t border-gray-200 flex-wrap">
+                            <button onclick="window.openAvailabilityModal('${instructor.id}')" class="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded text-sm font-semibold transition-colors flex-1"><i class="fas fa-clock mr-1"></i> التفرغ</button>
+                            <button onclick="window.openEditModal('instructor', '${instructor.id}')" class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-3 py-1 rounded text-sm font-semibold transition-colors flex-1"><i class="fas fa-edit mr-1"></i> تعديل</button>
+                            <button onclick="window.deleteItem('instructor', '${instructor.id}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded text-sm font-semibold transition-colors flex-1"><i class="fas fa-trash mr-1"></i> حذف</button>
+                        </div></div>`;
+            });
+            
+            html += `</div></div>`;
+            dom.advancedInstructorsView.innerHTML = html;
+
+            document.getElementById('adv-instructor-search').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                document.querySelectorAll('#adv-instructors-list > div').forEach(div => {
+                    const name = div.querySelector('p').textContent.toLowerCase();
+                    div.style.display = name.includes(query) ? 'flex' : 'none';
+                });
+            });
+        }
+
+        function addDragAndDropListeners(selector) {
+            // Placeholder for actual implementation if needed later
+        }
+
+        function addMemberViewDragDropListeners() {
+            // Placeholder for actual implementation if needed later
+        }
+
+        async function handleReset(force = false) {
+            if (userRole !== 'admin') return;
+            const batch = writeBatch(db);
+            
+            const deleteCollection = async (colRef) => {
+                const snapshot = await getDocs(colRef);
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            };
+            
+            await deleteCollection(levelsCol);
+            await deleteCollection(groupsCol);
+            await deleteCollection(subjectsCol);
+            await deleteCollection(instructorsCol);
+            await deleteCollection(locationsCol);
+            await deleteCollection(coursesCol);
+            await deleteCollection(schedulesCol);
+            
+            await batch.commit();
+            showToast("تم تهيئة جميع بيانات القسم بنجاح!");
+        }
+        
+        function handleExportReport() {
+            const content = document.documentElement.outerHTML;
+            const blob = new Blob([content], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `تقرير_الجداول_${new Date().toISOString().split('T')[0]}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function handleSaveBackup() {
+            const data = {
+                levels, groups, subjects, instructors, locations, courses, savedSchedules
+            };
+            const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function handleLoadScheduleFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    await handleReset(true);
+                    
+                    const batch = writeBatch(db);
+                    
+                    const restoreCollection = (colRef, items) => {
+                        items.forEach(item => {
+                            const docRef = doc(colRef, item.id);
+                            batch.set(docRef, item);
+                        });
+                    };
+                    
+                    restoreCollection(levelsCol, data.levels || []);
+                    restoreCollection(groupsCol, data.groups || []);
+                    restoreCollection(subjectsCol, data.subjects || []);
+                    restoreCollection(instructorsCol, data.instructors || []);
+                    restoreCollection(locationsCol, data.locations || []);
+                    restoreCollection(coursesCol, data.courses || []);
+                    
+                    for (const level in data.savedSchedules || {}) {
+                        const docRef = doc(schedulesCol, level);
+                        batch.set(docRef, { grid: JSON.stringify(data.savedSchedules[level]) });
+                    }
+                    
+                    await batch.commit();
+                    showToast('تم استيراد البيانات بنجاح!');
+                } catch (err) {
+                    console.error(err);
+                    showToast('حدث خطأ أثناء الاستيراد.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
         window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null, levelOverride = null) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
             const level = levelOverride || dom.levelFilterSelect.value;
             if (!level || level === 'all') {
                 showToast('يرجى تحديد فرقة أولاً.', 'error');
@@ -3242,6 +3421,10 @@
             await saveScheduleToFirebase(level, grid);
             modal.modal.style.display = 'none';
             showToast(isEditMode ? 'تم تعديل النشاط بنجاح!' : 'تم إضافة النشاط بنجاح!');
+            
+            handleLevelFilterChange();
+            if (activeCustomView === 'locations') displayLocationSchedules();
+            if (activeCustomView === 'members') displayMemberSchedules();
         }
 
         async function handleDeleteLevelActivity(day, time, locationName, activityId, level) {
@@ -3258,6 +3441,10 @@
                     await saveScheduleToFirebase(level, grid);
                     showToast("تم حذف النشاط.");
                     dom.levelActivityModal.modal.style.display = 'none';
+                    
+                    handleLevelFilterChange();
+                    if (activeCustomView === 'locations') displayLocationSchedules();
+                    if (activeCustomView === 'members') displayMemberSchedules();
                 } else {
                     showToast("خطأ: لم يتم العثور على النشاط للحذف.", "error");
                 }
@@ -3265,7 +3452,7 @@
         }
 
         window.openLocationActivityModal = (locationName, day, time) => {
-            if (userRole === 'guest') return;
+            if (userRole !== 'admin') return;
 
             const modal = dom.locationActivityModal;
             modal.title.textContent = `إضافة نشاط في: ${locationName} - ${day} الساعة ${formatTimeSlot(time)}`;
@@ -3296,7 +3483,6 @@
             }
 
             // Comprehensive conflict check
-            // 1. Check against all level schedules (including general_activities)
             for (const levelName in savedSchedules) {
                 const grid = savedSchedules[levelName];
                 for (let i = 0; i < duration; i++) {
@@ -3306,7 +3492,6 @@
                     }
                 }
             }
-            // 2. Check against all instructor custom activities
             for (const instructor of instructors) {
                 for (const activityId in instructor.customActivities || {}) {
                     const activity = instructor.customActivities[activityId];
@@ -3356,7 +3541,7 @@
                 await updateDoc(instructorRef, { [key]: customActivityData });
                 modal.modal.style.display = 'none';
                 showToast("تم حفظ النشاط كنشاط شخصي للعضو.");
-            } else { // No level, no instructor -> Truly general activity
+            } else { 
                 let grid = savedSchedules['general_activities'] ? JSON.parse(JSON.stringify(savedSchedules['general_activities'])) : {};
                 for (let i = 0; i < duration; i++) {
                     if (!grid[day]) grid[day] = {};
@@ -3367,6 +3552,10 @@
                 modal.modal.style.display = 'none';
                 showToast('تم إضافة النشاط العام بنجاح!');
             }
+            
+            handleLevelFilterChange();
+            if (activeCustomView === 'locations') displayLocationSchedules();
+            if (activeCustomView === 'members') displayMemberSchedules();
         }
     </script>
 </body>
