@@ -724,7 +724,7 @@
 			let isLoginSuccessful = false;
 
 			if (isGuestMode) {
-				if (enteredPassword === '2392') {
+				if (enteredPassword === '0000') {
                     userRole = 'guest';
 					isLoginSuccessful = true;
 				} else {
@@ -732,7 +732,7 @@
 				}
 			} else {
 				const enteredUsername = usernameInput.value;
-				if (enteredUsername.toLowerCase() === 'noha' && enteredPassword === 'BossX@786') {
+				if (enteredUsername.toLowerCase() === 'tarek' && enteredPassword === '150150') {
                     userRole = 'admin';
 					isLoginSuccessful = true;
 				} else {
@@ -2334,7 +2334,11 @@
                                 const clickHandler = canEdit 
                                     ? (cellData.type === 'custom' 
                                         ? `onclick="window.openCustomActivityModal('${instructors.find(i=>i.name===cellData.instructor)?.id}', '${day}', ${time}, '${cellData.id}')"`
-                                        : `onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')"`)
+                                        : (cellData.type === 'custom_activity'
+                                            ? `onclick="window.openLevelActivityModal('${day}', ${time}, '${item.name}', '${cellData.id}', '${cellData.level}')"`
+                                            : `onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')"`
+                                          )
+                                    )
                                     : '';
                                 
                                 allHtml += `<div class="schedule-item text-[11px]" ${clickHandler} style="background-color: ${bgColor};">${contentHtml}</div>`;
@@ -3115,9 +3119,9 @@
             document.body.removeChild(textArea);
         }
 
-        window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null) => {
+        window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null, levelOverride = null) => {
             if (userRole === 'guest') return;
-            const level = dom.levelFilterSelect.value;
+            const level = levelOverride || dom.levelFilterSelect.value;
             if (!level || level === 'all') {
                 showToast('يرجى تحديد فرقة أولاً.', 'error');
                 return;
