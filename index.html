@@ -56,6 +56,12 @@
         .list-item .control-buttons { opacity: 0; transition: opacity 0.2s; }
         .list-item:hover .control-buttons { opacity: 1; }
 
+        /* Copy Button & Selectable Tables */
+        .table-container { position: relative; }
+        .copy-btn { position: absolute; top: 10px; left: 10px; background-color: #f3f4f6; border: 1px solid #d1d5db; border-radius: 9999px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; z-index: 10; }
+        .copy-btn:hover { background-color: #e5e7eb; transform: scale(1.1); }
+        table, .schedule-item { user-select: text; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; }
+
         @media print {
             body * { visibility: hidden; }
             #schedule-output-container, #schedule-output-container *, #custom-views-container, #custom-views-container * { visibility: visible; }
@@ -63,7 +69,7 @@
             .schedule-item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             h2, h3 { text-align: center; margin-bottom: 20px; }
             #members-view-sidebar { display: none; }
-            .conflict-badge, .control-buttons, .print-hidden, footer, #top-controls { display: none; }
+            .conflict-badge, .control-buttons, .print-hidden, footer, #top-controls, .copy-btn { display: none; }
         }
     </style>
 </head>
@@ -1021,8 +1027,9 @@
         function displaySchedule(isCustomView = false) {
             const level = dom.levelFilterSelect.value; if (!level) return;
             const targetElement = isCustomView ? dom.customScheduleOutput : dom.scheduleOutput;
-            let title = level === 'all' ? 'الجدول الدراسي العام' : `الجدول الدراسي - ${level}`;
-            let tableHtml = `<h2 class="text-2xl font-bold text-center mb-4 text-gray-700">${title}</h2>`;
+            let tableHtml = `<div class="table-container">
+                                <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
+                                <h2 class="text-2xl font-bold text-center mb-4 text-gray-700">${level === 'all' ? 'الجدول الدراسي العام' : `الجدول الدراسي - ${level}`}</h2>`;
             tableHtml += '<table class="w-full border-collapse">';
             tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
             DAYS.forEach(day => {
@@ -1035,14 +1042,14 @@
                         const duration = itemsInCell[0].data.duration || 1; const containerClass = itemsInCell.length > 1 ? 'multi-item-container' : '';
                         tableHtml += `<td class="p-1 border border-gray-300 align-top" colspan="${duration}">`;
                         tableHtml += `<div class="drop-target ${containerClass}" data-day="${day}" data-time="${time}">`;
-                        itemsInCell.forEach(item => { const { locName, data: cellData } = item; const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); tableHtml += `<div class="schedule-item text-[11px]" draggable="true" data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${locName}')" style="background-color: ${bgColor}; border-right: 4px solid ${borderColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p>${cellData.groupName ? `<p class="font-bold text-teal-700">${cellData.groupName}</p>` : ''}<p class="font-semibold text-gray-600">${locName}</p></div>`; });
+                        itemsInCell.forEach(item => { const { locName, data: cellData } = item; const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); tableHtml += `<div class="schedule-item text-[11px]" draggable="true" data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${locName}', '${level}')" style="background-color: ${bgColor}; border-right: 4px solid ${borderColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p>${cellData.groupName ? `<p class="font-bold text-teal-700">${cellData.groupName}</p>` : ''}<p class="font-semibold text-gray-600">${locName}</p></div>`; });
                         tableHtml += `</div></td>`;
                         time_cursor += duration;
                     } else { const isContinuationSlot = locations.some(loc => scheduleGrid[day]?.[time]?.[loc.name]?.isContinuation); if (!isContinuationSlot) { tableHtml += `<td class="p-1 border border-gray-300 align-top"><div class="drop-target" data-day="${day}" data-time="${time}"></div></td>`; } time_cursor++; }
                 }
                 tableHtml += `</tr>`;
             });
-            tableHtml += '</tbody></table>';
+            tableHtml += '</tbody></table></div>';
             targetElement.innerHTML = tableHtml;
             addDragAndDropListeners(isCustomView ? '#custom-schedule-output' : '#schedule-output');
         }
@@ -1074,7 +1081,7 @@
             const filteredItems = locations.filter(l => l.type === filterType); if (!filteredItems.length) return '';
             let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
             filteredItems.forEach(item => {
-                allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg"><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
+                allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
                 allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
                 DAYS.forEach(day => {
                     allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
@@ -1125,7 +1132,7 @@
                         const customActivities = instructor.customActivities || {};
                         for (const key in customActivities) { const [day, timeStr] = key.split('-'); const time = parseInt(timeStr); const activity = customActivities[key]; instructorGrid[day][time].push({type: 'custom', ...activity}); }
                         
-                        allHtml += `<div class="mb-10 bg-white p-4 sm:p-6 rounded-xl shadow-lg"> <h4 class="text-xl font-bold text-center mb-4 text-sky-600">${instructor.name}</h4> <h5 class="font-bold text-center text-md mb-2 text-gray-700">الجدول التفصيلي</h5> <table class="w-full text-sm text-center border-collapse"> <thead><tr class="bg-gray-100"> <th class="p-2 border">اليوم</th> ${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono">${formatTimeSlot(t)}</th>`).join('')} </tr></thead><tbody>`;
+                        allHtml += `<div class="mb-10 bg-white p-4 sm:p-6 rounded-xl shadow-lg"> <h4 class="text-xl font-bold text-center mb-4 text-sky-600">${instructor.name}</h4> <div class="table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h5 class="font-bold text-center text-md mb-2 text-gray-700">الجدول التفصيلي</h5> <table class="w-full text-sm text-center border-collapse"> <thead><tr class="bg-gray-100"> <th class="p-2 border">اليوم</th> ${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono">${formatTimeSlot(t)}</th>`).join('')} </tr></thead><tbody>`;
                         DAYS.forEach(day => {
                             allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`; 
                             let time_cursor = 0;
@@ -1136,10 +1143,10 @@
                                 if (apps.length > 0) {
                                     const maxDuration = Math.max(...apps.map(app => app.duration || 1));
                                     const isConflict = apps.length > 1;
-                                    let cellHtml = `<td class="p-1 border align-top text-[10px] ${isConflict ? 'border-red-500 border-2' : ''}" colspan="${maxDuration}">`;
+                                    let cellHtml = `<td class="p-1 border align-top ${isConflict ? 'border-red-500 border-2' : ''}" colspan="${maxDuration}">`;
                                     apps.forEach(app => {
-                                        if (app.type === 'course') { cellHtml += `<div class="schedule-item" onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')" style="background-color: ${courseColors[app.baseName] || '#e5e7eb'};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
-                                        else { cellHtml += `<div class="schedule-item bg-gray-200" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.text}', ${app.duration})"><p class="font-bold">${app.text}</p></div>`; }
+                                        if (app.type === 'course') { cellHtml += `<div class="schedule-item text-[9px]" onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')" style="background-color: ${courseColors[app.baseName] || '#e5e7eb'};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
+                                        else { cellHtml += `<div class="schedule-item bg-gray-200 text-[9px]" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.text}', ${app.duration})"><p class="font-bold">${app.text}</p></div>`; }
                                     });
                                     cellHtml += `</td>`;
                                     allHtml += cellHtml;
@@ -1148,6 +1155,7 @@
                                         const nextTime = time + d;
                                         apps.forEach(app => {
                                             if(d < app.duration){
+                                                if(!instructorGrid[day][nextTime]) instructorGrid[day][nextTime] = [];
                                                 instructorGrid[day][nextTime].push({...app, isContinuation: true});
                                             }
                                         });
@@ -1160,7 +1168,7 @@
                             }
                             allHtml += `</tr>`;
                         });
-                        allHtml += `</tbody></table> ${generateMirrorTableHtml(instructor)} </div>`;
+                        allHtml += `</tbody></table></div> ${generateMirrorTableHtml(instructor)} </div>`;
                     });
                 }
             });
@@ -1209,7 +1217,8 @@
             const totalHoursSummary = theoreticalHours + practicalHours;
 
             return `
-            <div class="mt-6 p-4 bg-gray-50 border rounded-lg">
+            <div class="mt-6 p-4 bg-gray-50 border rounded-lg table-container">
+                <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
                 <h5 class="font-bold text-center text-lg mb-4 text-gray-700">مرايا الجدول (ملخص النصاب الفعلي)</h5>
                 <table class="w-full text-sm text-right">
                     <thead><tr class="bg-gray-200 text-gray-600"><th class="p-2">المقرر / النشاط (الفرقة)</th><th class="p-2 text-center">ساعات نظري</th><th class="p-2 text-center">ساعات عملي</th></tr></thead>
@@ -1371,6 +1380,38 @@
             if (asHex) { let s_norm = s / 100; let l_norm = l / 100; let c = (1 - Math.abs(2 * l_norm - 1)) * s_norm, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l_norm - c/2, r = 0, g = 0, b = 0; if (0 <= h && h < 60) { r = c; g = x; b = 0; } else if (60 <= h && h < 120) { r = x; g = c; b = 0; } else if (120 <= h && h < 180) { r = 0; g = c; b = x; } else if (180 <= h && h < 240) { r = 0; g = x; b = c; } else if (240 <= h && h < 300) { r = x; g = 0; b = c; } else if (300 <= h && h < 360) { r = c; g = 0; b = x; } r = Math.round((r + m) * 255).toString(16); g = Math.round((g + m) * 255).toString(16); b = Math.round((b + m) * 255).toString(16); if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b; return `#${r}${g}${b}`; }
             return `hsl(${h}, ${s}%, ${l}%)`;
         }
+
+        window.copyTableToClipboard = (button) => {
+            const tableContainer = button.closest('.table-container');
+            const table = tableContainer.querySelector('table');
+            if (!table) return;
+
+            let tableText = '';
+            const rows = table.rows;
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                let rowText = '';
+                for (let j = 0; j < row.cells.length; j++) {
+                    const cell = row.cells[j];
+                    let cellContent = cell.innerText.replace(/\s\s+/g, ' ').trim();
+                    rowText += cellContent + '\t'.repeat(cell.colSpan);
+                }
+                tableText += rowText.trim() + '\n';
+            }
+
+            const textArea = document.createElement('textarea');
+            textArea.value = tableText;
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('تم نسخ الجدول بنجاح!');
+            } catch (err) {
+                showToast('فشل نسخ الجدول.', 'error');
+            }
+            document.body.removeChild(textArea);
+        }
+
     </script>
 </body>
 </html>
