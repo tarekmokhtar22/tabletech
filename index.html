@@ -173,6 +173,7 @@
                 <button id="generate-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-sync-alt mr-2"></i>تحديث الجدول</button>
                 <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
                 <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
+                <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
                 <button id="export-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-export mr-2"></i>تصدير</button>
                 <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
                 <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
@@ -352,12 +353,14 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         let subjects = [], instructors = [], locations = [], courses = [], levels = [], groups = [];
         let courseColors = {}, scheduleGrid = {};
         let savedSchedules = {};
         let activeCustomView = null;
+        let showConflicts = true;
+        let ignoredConflicts = new Set();
         
         const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
         const TIME_SLOTS_HOURLY = Array.from({ length: 10 }, (_, i) => i + 8); 
@@ -385,6 +388,7 @@
             filterMembersBtn: document.getElementById('filter-members-btn'), exportBtn: document.getElementById('export-btn'),
             loadBtn: document.getElementById('load-btn'), fileLoader: document.getElementById('file-loader'),
             resetBtn: document.getElementById('reset-btn'), printBtn: document.getElementById('print-btn'),
+            showConflictsBtn: document.getElementById('show-conflicts-btn'),
             scheduleOutput: document.getElementById('schedule-output'), customScheduleOutput: document.getElementById('custom-schedule-output'),
             hideCustomViewBtn: document.getElementById('hide-custom-view-btn'),
             refreshCustomViewBtn: document.getElementById('refresh-custom-view-btn'),
@@ -434,7 +438,7 @@
         };
         
         let db, auth, userId;
-        let subjectsCol, instructorsCol, locationsCol, coursesCol, levelsCol, schedulesCol, groupsCol;
+        let subjectsCol, instructorsCol, locationsCol, coursesCol, levelsCol, schedulesCol, groupsCol, settingsCol;
         let draggedItem = null;
 
         async function initializeFirebase() {
@@ -465,6 +469,7 @@
                         locationsCol = collection(db, basePath, 'locations');
                         coursesCol = collection(db, basePath, 'courses');
                         schedulesCol = collection(db, basePath, 'schedules');
+                        settingsCol = collection(db, basePath, 'settings');
                         setupRealtimeListeners();
                     } else {
                         signInAnonymously(auth).catch(error => {
@@ -625,9 +630,9 @@
             }, detailsHtml);
         };
 
-        function setupRealtimeListeners() {
+        async function setupRealtimeListeners() {
             let loadedCollections = 0;
-            const totalCollections = 7;
+            const totalCollections = 8; // Increased to 8 for settings
             const onCollectionLoaded = () => {
                 loadedCollections++;
                 if (loadedCollections >= totalCollections) {
@@ -636,6 +641,17 @@
                     detectAndDisplayConflicts();
                 }
             };
+            
+            const settingsDocRef = doc(settingsCol, 'app_config');
+            onSnapshot(settingsDocRef, (doc) => {
+                if (doc.exists()) {
+                    ignoredConflicts = new Set(doc.data().ignoredConflicts || []);
+                }
+                onCollectionLoaded();
+            }, (error) => {
+                console.error("Error fetching settings:", error);
+                onCollectionLoaded(); // Still count as loaded to not block UI
+            });
 
             onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error);
             onSnapshot(query(groupsCol), s => { groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroups(); updateGroupSelector(); onCollectionLoaded(); }, console.error);
@@ -776,6 +792,10 @@
         dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل البيانات؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
         dom.printBtn.addEventListener('click', () => window.print());
         dom.levelFilterSelect.addEventListener('change', handleLevelFilterChange);
+        dom.showConflictsBtn.addEventListener('click', () => {
+            showConflicts = true;
+            detectAndDisplayConflicts();
+        });
         
         [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn].forEach(btn => {
             if(btn) btn.onclick = () => btn.closest('.modal').style.display = "none";
@@ -1090,7 +1110,25 @@
             for (let i = 0; i < course.duration; i++) { const currentTime = time + i; scheduleGrid[day][currentTime][locName] = { ...course, isContinuation: i > 0 }; if (instructorSchedule[course.instructor]) { instructorSchedule[course.instructor][day][currentTime] = course.type; } if(course.type === 'lecture' && lectureBlockedTimes[day]) { lectureBlockedTimes[day].add(currentTime); } }
         }
         
+        async function allowConflict(conflictId) {
+            ignoredConflicts.add(conflictId);
+            const settingsDocRef = doc(settingsCol, 'app_config');
+            try {
+                await setDoc(settingsDocRef, { ignoredConflicts: Array.from(ignoredConflicts) }, { merge: true });
+                showToast("تم السماح بالتعارض.");
+                detectAndDisplayConflicts();
+            } catch (error) {
+                console.error("Error saving ignored conflict:", error);
+                showToast("خطأ في حفظ الإعداد.", "error");
+            }
+        }
+        window.allowConflict = allowConflict;
+
         function detectAndDisplayConflicts() {
+            if (!showConflicts) {
+                dom.conflictOutput.innerHTML = '';
+                return;
+            }
             const conflicts = [];
             const allScheduledItems = [];
             for (const levelName in savedSchedules) {
@@ -1111,33 +1149,50 @@
                 for(let j = i + 1; j < allScheduledItems.length; j++) {
                     const itemA = allScheduledItems[i];
                     const itemB = allScheduledItems[j];
+
+                    const conflictId = [itemA.id, itemB.id].sort().join('|');
+                    if (ignoredConflicts.has(conflictId)) continue;
                     
                     const timeConflict = itemA.day === itemB.day && 
                                        (itemA.time < itemB.time + itemB.duration && itemB.time < itemA.time + itemA.duration);
                     if (!timeConflict) continue;
 
                     let conflictReason = null;
+                    let suggestion = null;
+
                     if (itemA.location === itemB.location) {
-                        conflictReason = `تعارض مكان: ${itemA.location}`;
-                    } else if (itemA.instructor && itemA.instructor !== 'غير محدد' && itemA.instructor === itemB.instructor) {
-                        // If the instructor and time are the same, check if it's for the same base subject.
-                        // If it is, it's a combined lecture and not a conflict.
-                        if (itemA.baseName !== itemB.baseName) {
-                            conflictReason = `تعارض محاضر: ${itemA.instructor}`;
+                        const isCombinedLecture = 
+                            itemA.instructor === itemB.instructor &&
+                            itemA.baseName === itemB.baseName &&
+                            itemA.level !== itemB.level;
+
+                        if (!isCombinedLecture) {
+                            conflictReason = `تعارض مكان: ${itemA.location} مشغول`;
+                            suggestion = `نقل أحد المقررين إلى مكان آخر فارغ من نفس النوع.`;
                         }
-                    } else if (itemA.groupName && itemB.groupName && itemA.groupName === itemB.groupName) {
-                        // Ensure both have groups before comparing
-                        conflictReason = `تعارض مجموعة: ${itemA.groupName}`;
+                    } else if (itemA.instructor && itemA.instructor !== 'غير محدد' && itemA.instructor === itemB.instructor) {
+                        if (itemA.baseName !== itemB.baseName) {
+                            conflictReason = `تعارض عضو هيئة تدريس: ${itemA.instructor} لديه مقررين في نفس الوقت.`;
+                            suggestion = `تغيير عضو هيئة التدريس لأحد المقررين، أو تغيير توقيت أحدهما.`;
+                        }
+                    } else if (itemA.groupName && itemB.groupName && itemA.groupName === itemB.groupName && itemA.level === itemB.level) {
+                        conflictReason = `تعارض مجموعة: ${itemA.groupName} (${itemA.level})`;
+                        suggestion = `تغيير توقيت أحد المقررين.`;
                     }
 
-
                     if(conflictReason) {
-                        conflicts.push({ reason: conflictReason, itemA, itemB });
+                        conflicts.push({ reason: conflictReason, suggestion, itemA, itemB, conflictId });
                     }
                 }
             }
             renderConflictList(conflicts);
         }
+
+        window.ignoreConflicts = () => {
+            showConflicts = false;
+            dom.conflictOutput.innerHTML = '';
+            showToast("تم إخفاء التعارضات مؤقتًا.");
+        };
 
         function renderConflictList(conflicts) {
             if (conflicts.length === 0) {
@@ -1145,17 +1200,26 @@
                 return;
             }
             let html = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md" role="alert">
-                <h3 class="font-bold text-lg mb-2"><i class="fas fa-exclamation-triangle mr-2"></i>تم اكتشاف ${conflicts.length} تعارضات</h3>
-                <ul class="list-disc list-inside space-y-2">`;
+                <div class="flex justify-between items-center">
+                    <h3 class="font-bold text-lg"><i class="fas fa-exclamation-triangle mr-2"></i>تم اكتشاف ${conflicts.length} تعارضات</h3>
+                    <button onclick="window.ignoreConflicts()" class="bg-red-200 text-red-800 font-bold py-1 px-3 rounded-lg hover:bg-red-300 text-sm">إخفاء الكل</button>
+                </div>
+                <ul class="list-none space-y-3 mt-2">`;
             
             conflicts.forEach(conflict => {
-                const { reason, itemA, itemB } = conflict;
-                html += `<li>
-                    <span class="font-semibold">${reason}</span> - ${itemA.day} الساعة ${formatTimeSlot(itemA.time, 1)}
-                    <ul class="list-['-_'] list-inside mr-4 text-sm">
-                        <li>"${itemA.name}" (${itemA.level}) في "${itemA.location}"</li>
-                        <li>"${itemB.name}" (${itemB.level}) في "${itemB.location}"</li>
-                    </ul>
+                const { reason, suggestion, itemA, itemB, conflictId } = conflict;
+                html += `<li class="border-t border-red-200 pt-2">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-semibold">${reason}</p>
+                            <ul class="list-['-_'] list-inside mr-4 text-sm text-red-900">
+                                <li>"${itemA.name}" (${itemA.level}) في "${itemA.location}"</li>
+                                <li>"${itemB.name}" (${itemB.level}) في "${itemB.location}"</li>
+                            </ul>
+                        </div>
+                        <button onclick="window.allowConflict('${conflictId}')" class="bg-green-200 text-green-800 font-bold py-1 px-3 rounded-lg hover:bg-green-300 text-sm whitespace-nowrap">سماح</button>
+                    </div>
+                    ${suggestion ? `<p class="text-sm text-green-800 bg-green-100 p-2 rounded-md mt-2"><i class="fas fa-lightbulb mr-1"></i> <strong>حل مقترح:</strong> ${suggestion}</p>` : ''}
                 </li>`;
             });
             
@@ -1796,6 +1860,4 @@
     </script>
 </body>
 </html>
-" of the Canvas.
- قم بالسماح لجداول الأماكن بإضافه خانتين او اكثر بداخلها
 
