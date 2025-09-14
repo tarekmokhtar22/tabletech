@@ -961,6 +961,7 @@
             });
         }
         async function saveScheduleToFirebase(level, grid) { if (!level || level === 'all') return; try { const scheduleRef = doc(db, schedulesCol.path, level); await setDoc(scheduleRef, { grid: JSON.stringify(grid) }); } catch (error) { console.error("Error saving schedule:", error); showToast("خطأ في حفظ الجدول", "error"); } }
+        
         function generateSchedule() {
             const selectedLevel = dom.levelFilterSelect.value;
             if (selectedLevel === 'all') { return showToast("يرجى اختيار فرقة دراسية محددة لتحديث جدولها.", "error"); }
@@ -973,7 +974,21 @@
             if (coursesToSchedule.length === 0) { return showToast("لا توجد مواد جديدة لإضافتها للجدول.", "error"); }
             let instructorSchedule = {}; instructors.forEach(inst => { instructorSchedule[inst.name] = {}; DAYS.forEach(day => { instructorSchedule[inst.name][day] = {}; TIME_SLOTS_HOURLY.forEach(time => instructorSchedule[inst.name][day][time] = null); }); });
             let lectureBlockedTimes = {}; DAYS.forEach(day => { lectureBlockedTimes[day] = new Set(); });
-            for (const day of DAYS) for (const time of TIME_SLOTS_HOURLY) for (const loc of locations) { const cellData = scheduleGrid[day]?.[time]?.[loc.name]; if (cellData) { instructorSchedule[cellData.instructor][day][time] = cellData.type; if (cellData.type === 'lecture') { lectureBlockedTimes[day].add(time); } } }
+            
+            for (const day of DAYS) {
+                for (const time of TIME_SLOTS_HOURLY) {
+                    for (const loc of locations) {
+                        const cellData = scheduleGrid[day]?.[time]?.[loc.name];
+                        if (cellData && instructorSchedule[cellData.instructor]) {
+                            instructorSchedule[cellData.instructor][day][time] = cellData.type;
+                            if (cellData.type === 'lecture') {
+                                lectureBlockedTimes[day].add(time);
+                            }
+                        }
+                    }
+                }
+            }
+
             let unscheduled = [];
             const schedulePhase = (courseList) => {
                 courseList.forEach(course => {
