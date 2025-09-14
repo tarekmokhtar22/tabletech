@@ -25,8 +25,10 @@
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s; }
         .modal-content { background-color: #fefefe; margin: 10% auto; padding: 24px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideIn 0.3s; }
         .close-button { color: #aaa; float: left; font-size: 28px; font-weight: bold; cursor: pointer; }
-        .empty-slot { cursor: pointer; }
+        .empty-slot { cursor: pointer; position: relative; }
         .empty-slot:hover { background-color: #f0f9ff; }
+        .add-concurrent-btn { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 50%; background-color: rgba(4, 120, 87, 0.7); color: white; display: none; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; z-index: 10; }
+        .occupied-slot:hover .add-concurrent-btn { display: flex; }
         input[type="color"] { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-color: transparent; width: 100%; height: 40px; border: 1px solid #ccc; border-radius: 0.375rem; cursor: pointer; padding: 2px; }
         input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
         input[type="color"]::-moz-color-swatch { border-radius: 4px; border: none; }
@@ -112,9 +114,12 @@
                                 </div>
                                 <div>
                                     <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
-                                    <form id="group-form" class="flex gap-2 mt-2">
-                                        <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
-                                        <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                    <form id="group-form" class="space-y-2 mt-2">
+                                        <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+                                        <div class="flex gap-2">
+                                            <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
+                                            <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                        </div>
                                     </form>
                                     <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
                                 </div>
@@ -366,6 +371,7 @@
             customViewsContainer: document.getElementById('custom-views-container'),
             levelForm: document.getElementById('level-form'), levelsList: document.getElementById('levels-list'),
             groupForm: document.getElementById('group-form'), groupsList: document.getElementById('groups-list'),
+            groupLevelSelect: document.getElementById('group-level-select'),
             subjectLevelSelect: document.getElementById('subject-level-select'),
             levelFilterSelect: document.getElementById('level-filter-select'),
             subjectForm: document.getElementById('subject-form'), subjectsList: document.getElementById('subjects-list'),
@@ -538,11 +544,33 @@
         }
 
         async function handleAddLevel(e) { const name = e.target.closest('form').querySelector('input').value.trim(); if (name && !levels.some(l => l.name === name)) { handleAddWithLoading(e, levelsCol, { name }, "تمت إضافة الفرقة بنجاح!"); } }
-        async function handleAddGroup(e) { const name = e.target.closest('form').querySelector('input').value.trim(); if (name && !groups.some(g => g.name === name)) { handleAddWithLoading(e, groupsCol, { name }, "تمت إضافة المجموعة بنجاح!"); } }
+        
+        async function handleAddGroup(e) {
+            const form = e.target.closest('form');
+            const name = form.querySelector('#group-name').value.trim();
+            const academicLevel = form.querySelector('#group-level-select').value;
+            if (name && academicLevel && !groups.some(g => g.name === name && g.academicLevel === academicLevel)) {
+                await handleAddWithLoading(e, groupsCol, { name, academicLevel }, "تمت إضافة المجموعة بنجاح!");
+                form.querySelector('#group-name').value = '';
+            } else {
+                showToast("يرجى اختيار فرقة وإدخال اسم مجموعة غير مكرر لنفس الفرقة.", "error");
+            }
+        }
         
         function renderLevels() { dom.levelsList.innerHTML = levels.map(l => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${l.id}"><p class="font-semibold text-sm">${l.name}</p>${createControlButtons('level', l.id)}</div>`).join(''); }
-        function renderGroups() { dom.groupsList.innerHTML = groups.map(g => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${g.id}"><p class="font-semibold text-sm">${g.name}</p>${createControlButtons('group', g.id)}</div>`).join(''); }
         
+        function renderGroups() {
+            let html = '';
+            levels.forEach(level => {
+                const levelGroups = groups.filter(g => g.academicLevel === level.name);
+                if (levelGroups.length > 0) {
+                    html += `<h4 class="text-sm font-bold text-gray-500 mt-2">${level.name}</h4>`;
+                    html += levelGroups.map(g => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${g.id}"><p class="font-semibold text-sm">${g.name}</p>${createControlButtons('group', g.id)}</div>`).join('');
+                }
+            });
+            dom.groupsList.innerHTML = html || '<p class="text-gray-400 text-sm">أضف الفرق أولاً ثم المجموعات.</p>';
+        }
+
         window.deleteItem = async (type, id) => {
             const itemMap = { level: {data: levels, col: levelsCol}, group: {data: groups, col: groupsCol}, subject: {data: subjects, col: subjectsCol}, instructor: {data: instructors, col: instructorsCol}, location: {data: locations, col: locationsCol}, course: {data: courses, col: coursesCol} };
             const itemToDelete = itemMap[type].data.find(i => i.id === id);
@@ -556,10 +584,16 @@
             if (type === 'level') {
                 const dependentSubjects = subjects.filter(s => s.academicLevel === itemToDelete.name);
                 const dependentCourses = courses.filter(c => dependentSubjects.some(ds => ds.name === c.baseName));
+                const dependentGroups = groups.filter(g => g.academicLevel === itemToDelete.name);
+                
                 if(dependentSubjects.length > 0) {
                     detailsHtml += `<p class="font-bold">سيتم حذف المواد التالية والسكاشن المرتبطة بها:</p><ul>${dependentSubjects.map(s => `<li>- ${s.name}</li>`).join('')}</ul>`;
                     dependentSubjects.forEach(s => batch.delete(doc(subjectsCol, s.id)));
                     dependentCourses.forEach(c => batch.delete(doc(coursesCol, c.id)));
+                }
+                if(dependentGroups.length > 0) {
+                    detailsHtml += `<p class="font-bold mt-2">سيتم حذف المجموعات التالية:</p><ul>${dependentGroups.map(g => `<li>- ${g.name}</li>`).join('')}</ul>`;
+                    dependentGroups.forEach(g => batch.delete(doc(groupsCol, g.id)));
                 }
                  if(savedSchedules[itemToDelete.name]) {
                     detailsHtml += `<p class="font-bold mt-2">سيتم حذف الجدول المحفوظ لهذه الفرقة.</p>`;
@@ -761,7 +795,7 @@
         function renderCourses() {
             const selectedLevel = dom.levelFilterSelect.value;
             const coursesToDisplay = selectedLevel === 'all' ? courses : courses.filter(c => subjects.some(s => s.name === c.baseName && s.academicLevel === selectedLevel));
-            dom.coursesList.innerHTML = coursesToDisplay.length ? coursesToDisplay.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-r-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div><button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div>`).join('') : '<p class="text-gray-400">لم تتم إضافة أي محاضرات لهذه الفرقة.</p>';
+            dom.coursesList.innerHTML = coursesToDisplay.length ? coursesToDisplay.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-r-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div><button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div>`).join('') : '<p class="text-gray-400">لم يتم إضافة أي محاضرات لهذه الفرقة.</p>';
         }
         function renderSummaryTable() {
             const selectedLevel = dom.levelFilterSelect.value;
@@ -773,8 +807,25 @@
             const tableRows = subjectsForLevel.map(subject => { const associatedCourses = courses.filter(c => c.baseName === subject.name); const lectureHours = associatedCourses.filter(c => c.type === 'lecture').reduce((sum, c) => sum + c.duration, 0); const labHours = associatedCourses.filter(c => c.type === 'lab').reduce((sum, c) => sum + c.duration, 0); totalLectureHours += lectureHours; totalLabHours += labHours; return ` <tr class="border-b"> <td class="p-2 font-semibold text-black"> <div class="flex items-center justify-start gap-2"> <div class="w-4 h-4 rounded-sm" style="background-color: ${subject.color || '#cccccc'};"></div> <span>${subject.name}</span> </div> </td> <td class="p-2 text-center">${lectureHours}</td> <td class="p-2 text-center">${labHours}</td> <td class="p-2 text-center font-bold">${lectureHours + labHours}</td> </tr> `; }).join('');
             container.innerHTML = ` <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg"> <h3 class="text-lg font-bold text-center mb-4 text-gray-600">مراية الجدول: ملخص الساعات (${selectedLevel})</h3> <table class="w-full text-sm"> <thead> <tr class="bg-gray-100 text-gray-600 uppercase text-xs"> <th class="p-2 text-right">المادة</th> <th class="p-2 text-center">ساعات نظري</th> <th class="p-2 text-center">ساعات عملي</th> <th class="p-2 text-center">الإجمالي</th> </tr> </thead> <tbody> ${tableRows} </tbody> <tfoot> <tr class="bg-gray-200 font-bold"> <td class="p-2 text-right">الإجمالي الكلي</td> <td class="p-2 text-center">${totalLectureHours}</td> <td class="p-2 text-center">${totalLabHours}</td> <td class="p-2 text-center">${totalLectureHours + totalLabHours}</td> </tr> </tfoot> </table> </div> `;
         }
-        function updateLevelSelectors() { const options = levels.map(l => `<option value="${l.name}">${l.name}</option>`).join(''); dom.subjectLevelSelect.innerHTML = `<option value="">اختر الفرقة...</option>` + options; dom.levelFilterSelect.innerHTML = `<option value="all">عرض الكل</option>` + options; handleLevelFilterChange(); }
-        function updateGroupSelector() { dom.courseGroupSelect.innerHTML = '<option value="">اختر المجموعة...</option>' + groups.map(g => `<option value="${g.name}">${g.name}</option>`).join(''); }
+        
+        function updateLevelSelectors() { 
+            const options = levels.map(l => `<option value="${l.name}">${l.name}</option>`).join(''); 
+            dom.subjectLevelSelect.innerHTML = `<option value="">اختر الفرقة...</option>` + options;
+            dom.groupLevelSelect.innerHTML = `<option value="">اختر الفرقة...</option>` + options;
+            dom.levelFilterSelect.innerHTML = `<option value="all">عرض الكل</option>` + options; 
+            handleLevelFilterChange(); 
+        }
+
+        function updateGroupSelector() {
+            const selectedLevel = dom.levelFilterSelect.value;
+            if (!selectedLevel || selectedLevel === 'all') {
+                dom.courseGroupSelect.innerHTML = '<option value="">اختر الفرقة الرئيسية أولاً...</option>';
+                return;
+            }
+            const filteredGroups = groups.filter(g => g.academicLevel === selectedLevel);
+            dom.courseGroupSelect.innerHTML = '<option value="">اختر المجموعة...</option>' + filteredGroups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+        }
+        
         function updateCourseSelector() {
             const selectedLevel = dom.levelFilterSelect.value;
             if (!selectedLevel || selectedLevel === 'all') { dom.courseNameSelect.innerHTML = '<option value="">اختر الفرقة الرئيسية أولاً...</option>'; return; }
@@ -795,7 +846,11 @@
             dom.instructorSelect.innerHTML = html;
         }
         function handleLevelFilterChange() {
-            renderCourses(); updateCourseSelector(); updateInstructorSelector(); renderSummaryTable();
+            renderCourses(); 
+            updateCourseSelector(); 
+            updateInstructorSelector(); 
+            renderSummaryTable();
+            updateGroupSelector();
             const selectedLevel = dom.levelFilterSelect.value;
             if (savedSchedules[selectedLevel]) { scheduleGrid = savedSchedules[selectedLevel]; displaySchedule(); dom.unscheduledOutput.innerHTML = ''; }
             else { scheduleGrid = {}; dom.scheduleOutput.innerHTML = '<p class="text-center text-gray-500">لم يتم إنشاء جدول لهذه الفرقة بعد. اضغط على "تحديث الجدول".</p>'; }
@@ -814,7 +869,10 @@
             const oldName = item.name;
             if ({ level: levels, group: groups, subject: subjects, instructor: instructors, location: locations }[type].some(i => i.name === newName && i.id !== id)) return showToast("هذا الاسم موجود بالفعل.", "error");
             const batch = writeBatch(db);
-            if (type === 'level') { subjects.forEach(s => { if(s.academicLevel === oldName) batch.update(doc(db, subjectsCol.path, s.id), { academicLevel: newName }); }); }
+            if (type === 'level') { 
+                subjects.forEach(s => { if(s.academicLevel === oldName) batch.update(doc(db, subjectsCol.path, s.id), { academicLevel: newName }); }); 
+                groups.forEach(g => { if(g.academicLevel === oldName) batch.update(doc(db, groupsCol.path, g.id), { academicLevel: newName }); });
+            }
             if (type === 'group') { courses.forEach(c => { if(c.groupName === oldName) batch.update(doc(db, coursesCol.path, c.id), { groupName: newName }); }); }
             if (type === 'instructor') { courses.forEach(c => { if(c.instructor === oldName) batch.update(doc(db, coursesCol.path, c.id), { instructor: newName }); }); }
             if (type === 'subject') {
@@ -979,7 +1037,7 @@
                 for (const time of TIME_SLOTS_HOURLY) {
                     for (const loc of locations) {
                         const cellData = scheduleGrid[day]?.[time]?.[loc.name];
-                        if (cellData && instructorSchedule[cellData.instructor]) {
+                        if (cellData && cellData.instructor && instructorSchedule[cellData.instructor]) {
                             instructorSchedule[cellData.instructor][day][time] = cellData.type;
                             if (cellData.type === 'lecture') {
                                 lectureBlockedTimes[day].add(time);
@@ -1067,9 +1125,11 @@
                         if (itemA.baseName !== itemB.baseName) {
                             conflictReason = `تعارض محاضر: ${itemA.instructor}`;
                         }
-                    } else if (itemA.groupName && itemA.groupName === itemB.groupName) {
+                    } else if (itemA.groupName && itemB.groupName && itemA.groupName === itemB.groupName) {
+                        // Ensure both have groups before comparing
                         conflictReason = `تعارض مجموعة: ${itemA.groupName}`;
                     }
+
 
                     if(conflictReason) {
                         conflicts.push({ reason: conflictReason, itemA, itemB });
@@ -1251,17 +1311,17 @@
                                 
                                 if (apps.length > 0) {
                                     const maxDuration = Math.max(...apps.map(app => app.duration || 1));
-                                    const isConflict = apps.length > 1;
-                                    let cellHtml = `<td class="p-1 border align-top ${isConflict ? 'border-red-500 border-2' : ''}" colspan="${maxDuration}">`;
+                                    allHtml += `<td class="p-1 border align-top occupied-slot" colspan="${maxDuration}" style="position: relative;">`;
+                                    allHtml += `<div class="add-concurrent-btn" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"><i class="fas fa-plus"></i></div>`;
+                                    allHtml += '<div class="flex flex-col gap-1">';
                                     apps.forEach(app => {
                                         const bgColor = app.color || courseColors[app.baseName] || (app.type === 'custom' ? '#e5e7eb' : '#f3f4f6');
                                         let contentHtml = '';
                                         if (app.type === 'course') { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')" style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
                                         else { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.text || app.name}', ${app.duration})" style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.level ? `<p>${app.level}</p>` : ''}</div>`; }
-                                        cellHtml += contentHtml;
+                                        allHtml += contentHtml;
                                     });
-                                    cellHtml += `</td>`;
-                                    allHtml += cellHtml;
+                                    allHtml += `</div></td>`;
                                     
                                     for(let d=1; d < maxDuration; d++){
                                         const nextTime = time + d;
@@ -1292,6 +1352,7 @@
             let practicalHours = 0;
             const summaryRows = [];
             const scheduledItems = new Map();
+            const timeSlotMap = new Map();
 
             for (const levelName in savedSchedules) {
                 const grid = savedSchedules[levelName];
@@ -1301,12 +1362,44 @@
                             const cell = grid[day][time][loc];
                             if (cell && cell.instructor === instructor.name && !cell.isContinuation) {
                                 const uniqueKey = cell.id;
-                                if (!scheduledItems.has(uniqueKey)) {
-                                    scheduledItems.set(uniqueKey, cell);
-                                }
+                                if (!scheduledItems.has(uniqueKey)) { scheduledItems.set(uniqueKey, cell); }
+                                
+                                const mapKey = `${day}-${time}`;
+                                if (!timeSlotMap.has(mapKey)) { timeSlotMap.set(mapKey, []); }
+                                timeSlotMap.get(mapKey).push(cell);
                             }
                         }
                     }
+                }
+            }
+            
+            const customActivities = instructor.customActivities || {};
+            for (const key in customActivities) {
+                const [day, timeStr] = key.split('-');
+                const activity = customActivities[key];
+                const mapKey = `${day}-${timeStr}`;
+                if (!timeSlotMap.has(mapKey)) { timeSlotMap.set(mapKey, []); }
+                timeSlotMap.get(mapKey).push({type: 'custom', ...activity});
+            }
+
+            let totalHoursSummary = 0;
+            const processedSlots = new Set();
+            const sortedSlotKeys = Array.from(timeSlotMap.keys()).sort((a, b) => {
+                const [dayA, timeA] = a.split('-');
+                const [dayB, timeB] = b.split('-');
+                if (dayA !== dayB) return DAYS.indexOf(dayA) - DAYS.indexOf(dayB);
+                return parseInt(timeA) - parseInt(timeB);
+            });
+
+            for (const key of sortedSlotKeys) {
+                if (processedSlots.has(key)) continue;
+                const itemsInSlot = timeSlotMap.get(key);
+                const maxDuration = Math.max(...itemsInSlot.map(item => item.duration || 1));
+                totalHoursSummary += maxDuration;
+                const [day, timeStr] = key.split('-');
+                const time = parseInt(timeStr);
+                for (let i = 0; i < maxDuration; i++) {
+                    processedSlots.add(`${day}-${time + i}`);
                 }
             }
             
@@ -1324,15 +1417,12 @@
                 }
             });
             
-            const customActivities = instructor.customActivities || {};
             for (const key in customActivities) {
                 const activity = customActivities[key];
-                const activityPractical = activity.duration || 0;
-                practicalHours += activityPractical;
-                summaryRows.push(`<tr class="border-b bg-gray-50"><td class="p-2 font-semibold">${activity.text} (نشاط شخصي)</td><td class="p-2 text-center">-</td><td class="p-2 text-center">${activityPractical}</td></tr>`);
+                practicalHours += activity.duration || 0;
+                summaryRows.push(`<tr class="border-b bg-gray-50"><td class="p-2 font-semibold">${activity.text} (نشاط شخصي)</td><td class="p-2 text-center">-</td><td class="p-2 text-center">${activity.duration || 0}</td></tr>`);
             }
-            const totalHoursSummary = theoreticalHours + practicalHours;
-
+            
             return `
             <div class="mt-6 p-4 bg-gray-50 border rounded-lg table-container">
                 <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
