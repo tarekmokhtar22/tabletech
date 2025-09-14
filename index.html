@@ -1234,38 +1234,68 @@
             document.getElementById('member-level-filter').addEventListener('change', updateMemberView);
         }
         function generateAggregatedLocationTableHtml(filterType, mainTitle) {
-            const filteredItems = locations.filter(l => l.type === filterType); if (!filteredItems.length) return '';
+            const filteredItems = locations.filter(l => l.type === filterType);
+            if (!filteredItems.length) return '';
+        
             let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
+        
             filteredItems.forEach(item => {
                 allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
                 allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
+                
                 DAYS.forEach(day => {
                     allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
                     let time_cursor = 0;
+        
                     while (time_cursor < TIME_SLOTS_HOURLY.length) {
-                        const time = TIME_SLOTS_HOURLY[time_cursor]; let cellData = null, foundLevel = null;
-                        for (const levelName in savedSchedules) { const grid = savedSchedules[levelName]; const potentialCell = grid[day]?.[time]?.[item.name]; if (potentialCell && !potentialCell.isContinuation) { cellData = potentialCell; foundLevel = levelName; break; } }
-                        if (cellData) { 
-                            const duration = cellData.duration || 1;
-                            let contentHtml = '';
-                            if(cellData.type === 'custom_activity') {
-                                contentHtml = `<p class="font-bold">${cellData.name} (${foundLevel})</p><p>${cellData.instructor}</p>`;
-                            } else {
-                                contentHtml = `<p class="font-bold">${cellData.name} (${foundLevel})</p><p>${cellData.instructor}</p>`;
+                        const time = TIME_SLOTS_HOURLY[time_cursor];
+                        
+                        const itemsInSlot = [];
+                        for (const levelName in savedSchedules) {
+                            const grid = savedSchedules[levelName];
+                            const potentialCell = grid[day]?.[time]?.[item.name];
+                            if (potentialCell && !potentialCell.isContinuation) {
+                                itemsInSlot.push({ ...potentialCell, level: levelName });
                             }
-                            const bgColor = cellData.color || courseColors[cellData.baseName] || '#e5e7eb';
-                            allHtml += `<td class="p-1 border align-top h-20" colspan="${duration}"><div class="schedule-item text-[11px]" style="background-color: ${bgColor};">${contentHtml}</div></td>`; 
-                            time_cursor += duration; 
-                        } else { 
-                            let isContinuationSlot = false; 
-                            for (const levelName in savedSchedules) { if (savedSchedules[levelName][day]?.[time]?.[item.name]?.isContinuation) { isContinuationSlot = true; break; } } if (!isContinuationSlot) { allHtml += `<td class="p-1 border align-top h-20"></td>`; } time_cursor++; 
+                        }
+        
+                        if (itemsInSlot.length > 0) {
+                            const maxDuration = Math.max(...itemsInSlot.map(app => app.duration || 1));
+                            allHtml += `<td class="p-1 border align-top h-20" colspan="${maxDuration}">`;
+                            allHtml += '<div class="flex flex-col gap-1">'; 
+                            
+                            itemsInSlot.forEach(cellData => {
+                                let contentHtml = '';
+                                if (cellData.type === 'custom_activity') {
+                                    contentHtml = `<p class="font-bold">${cellData.name} (${cellData.level})</p><p>${cellData.instructor}</p>`;
+                                } else {
+                                    contentHtml = `<p class="font-bold">${cellData.name} (${cellData.level})</p><p>${cellData.instructor}</p>`;
+                                }
+                                const bgColor = cellData.color || courseColors[cellData.baseName] || '#e5e7eb';
+                                allHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor};">${contentHtml}</div>`;
+                            });
+        
+                            allHtml += '</div></td>';
+                            time_cursor += maxDuration;
+                        } else {
+                            let isContinuationSlot = false;
+                            for (const levelName in savedSchedules) {
+                                if (savedSchedules[levelName][day]?.[time]?.[item.name]?.isContinuation) {
+                                    isContinuationSlot = true;
+                                    break;
+                                }
+                            }
+                            if (!isContinuationSlot) {
+                                allHtml += `<td class="p-1 border align-top h-20"></td>`;
+                            }
+                            time_cursor++;
                         }
                     }
                     allHtml += `</tr>`;
                 });
                 allHtml += '</tbody></table></div>';
             });
-            allHtml += '</div>'
+            allHtml += '</div>';
             return allHtml;
         }
 
@@ -1766,4 +1796,6 @@
     </script>
 </body>
 </html>
+" of the Canvas.
+ قم بالسماح لجداول الأماكن بإضافه خانتين او اكثر بداخلها
 
