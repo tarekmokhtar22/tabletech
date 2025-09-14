@@ -782,11 +782,16 @@
             dom.courseNameSelect.innerHTML = '<option value="">اختر المادة...</option>' + filteredSubjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
         }
         function updateInstructorSelector() {
-            const selectedLevel = dom.levelFilterSelect.value;
             let instructorsToShow = instructors;
-            if (selectedLevel && selectedLevel !== 'all') { const subjectsForLevel = subjects.filter(s => s.academicLevel === selectedLevel).map(s => s.name); const coursesForLevel = courses.filter(c => subjectsForLevel.includes(c.baseName)); const instructorsForLevel = [...new Set(coursesForLevel.map(c => c.instructor))]; if (instructorsForLevel.length > 0) { instructorsToShow = instructors.filter(i => instructorsForLevel.includes(i.name)); } }
             let html = '<option value="">اختر العضو...</option>';
-            INSTRUCTOR_CATEGORIES.forEach(category => { const members = instructorsToShow.filter(i => i.category === category); if (members.length > 0) { html += `<optgroup label="${category}">`; html += members.map(i => `<option value="${i.name}">${i.name}</option>`).join(''); html += `</optgroup>`; } });
+            INSTRUCTOR_CATEGORIES.forEach(category => { 
+                const members = instructorsToShow.filter(i => i.category === category); 
+                if (members.length > 0) { 
+                    html += `<optgroup label="${category}">`; 
+                    html += members.map(i => `<option value="${i.name}">${i.name}</option>`).join(''); 
+                    html += `</optgroup>`; 
+                } 
+            });
             dom.instructorSelect.innerHTML = html;
         }
         function handleLevelFilterChange() {
@@ -905,17 +910,32 @@
             dom.courseEditModal.style.display = 'none';
             showToast("تم حفظ التعديلات!");
         }
+
         async function handleDeleteFromSchedule(courseId, day, time, locationName, levelOverride = null) {
-            const course = courses.find(c => c.id === courseId); if (!course) return; const selectedLevel = levelOverride || dom.levelFilterSelect.value; if (!selectedLevel || selectedLevel === 'all') return;
-            const confirmed = await showConfirmModal("هل تريد بالتأكيد حذف هذا المقرر من الجدول؟", async () => {
+            const selectedLevel = levelOverride || dom.levelFilterSelect.value;
+            if (!selectedLevel || selectedLevel === 'all') return;
+            
+            await showConfirmModal("هل تريد بالتأكيد حذف هذا المقرر من الجدول؟", async () => {
                 let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-                const duration = grid[day]?.[time]?.[locationName]?.duration || 1;
-                for (let i = 0; i < duration; i++) { if(grid[day]?.[parseInt(time) + i]) { grid[day][parseInt(time) + i][locationName] = null; } }
+                const itemInGrid = grid[day]?.[time]?.[locationName];
+
+                if (!itemInGrid || itemInGrid.id !== courseId) {
+                    showToast("خطأ: لم يتم العثور على المقرر للحذف.", "error");
+                    return; 
+                }
+
+                const duration = itemInGrid.duration || 1;
+                for (let i = 0; i < duration; i++) {
+                    if (grid[day]?.[parseInt(time) + i]?.[locationName]) {
+                        delete grid[day][parseInt(time) + i][locationName];
+                    }
+                }
                 await saveScheduleToFirebase(selectedLevel, grid);
                 showToast("تم الحذف من الجدول.");
+                dom.courseEditModal.style.display = 'none';
             });
-            if(confirmed) dom.courseEditModal.style.display = 'none';
         }
+
         window.openCustomActivityModal = (instructorId, day, time, text = '', duration = 1) => {
             dom.customActivityModalTitle.textContent = text ? 'تعديل النشاط' : 'إضافة نشاط مخصص';
             dom.customActivityText.value = text; dom.customActivityDuration.value = duration;
@@ -1633,11 +1653,12 @@
                     await saveScheduleToFirebase(level, grid);
                     showToast("تم حذف النشاط.");
                     dom.levelActivityModal.modal.style.display = 'none';
+                } else {
+                    showToast("خطأ: لم يتم العثور على النشاط للحذف.", "error");
                 }
             });
         }
     </script>
 </body>
 </html>
-
 
