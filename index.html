@@ -1027,7 +1027,11 @@
                     if (itemA.location === itemB.location) {
                         conflictReason = `تعارض مكان: ${itemA.location}`;
                     } else if (itemA.instructor && itemA.instructor !== 'غير محدد' && itemA.instructor === itemB.instructor) {
-                        conflictReason = `تعارض محاضر: ${itemA.instructor}`;
+                        // If the instructor and time are the same, check if it's for the same base subject.
+                        // If it is, it's a combined lecture and not a conflict.
+                        if (itemA.baseName !== itemB.baseName) {
+                            conflictReason = `تعارض محاضر: ${itemA.instructor}`;
+                        }
                     } else if (itemA.groupName && itemA.groupName === itemB.groupName) {
                         conflictReason = `تعارض مجموعة: ${itemA.groupName}`;
                     }
@@ -1635,4 +1639,5 @@
     </script>
 </body>
 </html>
+
 
