@@ -1163,7 +1163,6 @@
                     if (itemA.location === itemB.location) {
                         const isCombinedLecture = 
                             itemA.instructor === itemB.instructor &&
-                            itemA.baseName === itemB.baseName &&
                             itemA.level !== itemB.level;
 
                         if (!isCombinedLecture) {
@@ -1533,44 +1532,97 @@
         function addDragAndDropListeners(containerSelector) { document.querySelectorAll(`${containerSelector} .schedule-item[draggable="true"]`).forEach(item => item.addEventListener('dragstart', handleDragStart)); document.querySelectorAll(`${containerSelector} .drop-target`).forEach(target => { target.addEventListener('dragover', e => e.preventDefault()); target.addEventListener('dragenter', e => e.target.closest('.drop-target')?.classList.add('drag-over')); target.addEventListener('dragleave', e => e.target.closest('.drop-target')?.classList.remove('drag-over')); target.addEventListener('drop', handleDrop); }); }
         function handleDragStart(e) { draggedItem = e.target.closest('.schedule-item'); setTimeout(() => { if(draggedItem) draggedItem.style.opacity = '0.5'; }, 0); }
         async function handleDrop(e) {
-            e.preventDefault(); if (!draggedItem) return;
-            draggedItem.style.opacity = '1';
-            const targetCell = e.target.closest('.drop-target'); if (!targetCell) return;
-            targetCell.classList.remove('drag-over');
+            e.preventDefault(); 
+            if (!draggedItem) return;
             
-            const sourceInfo = { id: draggedItem.dataset.courseId, day: draggedItem.dataset.day, time: parseInt(draggedItem.dataset.time), location: draggedItem.dataset.location };
-            const course = courses.find(c => c.id === sourceInfo.id); if (!course) return;
+            const targetCell = e.target.closest('.drop-target');
+            if(!targetCell) {
+                draggedItem.style.opacity = '1';
+                draggedItem = null;
+                return;
+            }
 
-            const targetDay = targetCell.dataset.day; const targetTime = parseInt(targetCell.dataset.time);
+            targetCell.classList.remove('drag-over');
+            draggedItem.style.opacity = '1';
+
+            const sourceInfo = { 
+                id: draggedItem.dataset.courseId, 
+                day: draggedItem.dataset.day, 
+                time: parseInt(draggedItem.dataset.time), 
+                location: draggedItem.dataset.location 
+            };
             
             const selectedLevel = dom.levelFilterSelect.value;
-            let tempGrid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-            
-            // Clear source
-            for (let i = 0; i < course.duration; i++) { if (tempGrid[sourceInfo.day]?.[sourceInfo.time + i]) { tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = null; } }
-            
-            // Check availability
-            let reason = '';
-            for (const loc of locations.filter(l => l.type === course.requiredLocationType)) {
-                 let canPlace = true;
-                 for (let i = 0; i < course.duration; i++) {
-                     if (tempGrid[targetDay]?.[targetTime + i]?.[loc.name]) { canPlace = false; reason = 'المكان مشغول'; break; }
-                     
-                     for (const l in tempGrid[targetDay]?.[targetTime + i]) {
-                        const cell = tempGrid[targetDay][targetTime+i][l];
-                        if(cell && cell.instructor === course.instructor) { canPlace = false; reason = `تعارض محاضر: ${course.instructor}`; break; }
-                        if(cell && course.groupName && cell.groupName === course.groupName) { canPlace = false; reason = `تعارض مجموعة: ${course.groupName}`; break; }
-                     }
-                     if(!canPlace) break;
-                 }
-                 if(canPlace) {
-                     for (let i = 0; i < course.duration; i++) { tempGrid[targetDay][targetTime + i][loc.name] = { ...course, isContinuation: i > 0 }; }
-                     await saveScheduleToFirebase(selectedLevel, tempGrid);
-                     showToast("تم نقل المقرر بنجاح!");
-                     return;
-                 }
+            const course = courses.find(c => c.id === sourceInfo.id) || savedSchedules[selectedLevel]?.[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+
+            if (!course) {
+                showToast("خطأ: لم يتم العثور على بيانات المقرر.", "error");
+                draggedItem = null;
+                return;
             }
-            showToast(`فشل النقل: ${reason || 'لا يوجد مكان مناسب متاح'}.`, "error");
+
+            const targetDay = targetCell.dataset.day;
+            const targetTime = parseInt(targetCell.dataset.time);
+            const targetLocation = sourceInfo.location; 
+
+            if (targetDay === sourceInfo.day && targetTime === sourceInfo.time) {
+                draggedItem = null;
+                return; 
+            }
+
+            let tempGrid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
+
+            for (let i = 0; i < course.duration; i++) {
+                if (tempGrid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
+                    delete tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                }
+            }
+
+            let canPlace = true;
+            let reason = '';
+
+            for (let i = 0; i < course.duration; i++) {
+                const currentTime = targetTime + i;
+
+                if (tempGrid[targetDay]?.[currentTime]?.[targetLocation]) {
+                    canPlace = false;
+                    reason = `المكان (${targetLocation}) مشغول في هذا التوقيت.`;
+                    break;
+                }
+
+                for (const otherLoc in tempGrid[targetDay]?.[currentTime]) {
+                    const cell = tempGrid[targetDay][currentTime][otherLoc];
+                    if (cell) {
+                         if (cell.instructor === course.instructor && cell.baseName !== course.baseName) {
+                             canPlace = false; 
+                             reason = `تعارض محاضر: ${course.instructor}`; 
+                             break;
+                         }
+                         if (course.groupName && cell.groupName === course.groupName && cell.level === course.level) {
+                             canPlace = false;
+                             reason = `تعارض مجموعة: ${course.groupName}`;
+                             break;
+                         }
+                    }
+                }
+                if (!canPlace) break;
+            }
+
+            if (canPlace) {
+                for (let i = 0; i < course.duration; i++) {
+                    const currentTime = targetTime + i;
+                    if (!tempGrid[targetDay]) tempGrid[targetDay] = {};
+                    if (!tempGrid[targetDay][currentTime]) tempGrid[targetDay][currentTime] = {};
+                    tempGrid[targetDay][currentTime][targetLocation] = { ...course, isContinuation: i > 0 };
+                }
+                await saveScheduleToFirebase(selectedLevel, tempGrid);
+                showToast("تم نقل المقرر بنجاح!");
+            } else {
+                showToast(`فشل النقل: ${reason}.`, "error");
+                displaySchedule(); 
+            }
+            
+            draggedItem = null;
         }
         function handleExportToFile() {
             const dataToSave = { levels, subjects, instructors, locations, courses, groups, savedSchedules };
