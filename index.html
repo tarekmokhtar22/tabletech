@@ -1438,56 +1438,92 @@
             if (!filteredItems.length) return '';
         
             let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
-        
+            
+            // 1. Build a comprehensive locationGrid
+            let locationGrid = {};
+            locations.forEach(loc => {
+                locationGrid[loc.name] = {};
+                DAYS.forEach(d => {
+                    locationGrid[loc.name][d] = {};
+                    TIME_SLOTS_HOURLY.forEach(t => locationGrid[loc.name][d][t] = []);
+                });
+            });
+
+            // 2. Populate with courses from schedules
+            for (const levelName in savedSchedules) {
+                const grid = savedSchedules[levelName];
+                for (const day in grid) {
+                    for (const time in grid[day]) {
+                        for (const locName in grid[day][time]) {
+                            const cell = grid[day][time][locName];
+                            if (cell && locationGrid[locName]) { // Check if location exists
+                                locationGrid[locName][day][parseInt(time)].push({ ...cell, level: levelName });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 3. Populate with custom activities
+            instructors.forEach(instructor => {
+                const customActivities = instructor.customActivities || {};
+                for (const activityId in customActivities) {
+                    const activity = customActivities[activityId];
+                    if (activity.location && locationGrid[activity.location]) {
+                        if (locationGrid[activity.location][activity.day] && locationGrid[activity.location][activity.day][activity.time]) {
+                            locationGrid[activity.location][activity.day][activity.time].push({
+                                id: activityId,
+                                type: 'custom',
+                                name: activity.text,
+                                instructor: instructor.name,
+                                level: ' ',
+                                ...activity
+                            });
+                        }
+                    }
+                }
+            });
+
+            // 4. Render tables
             filteredItems.forEach(item => {
                 allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
                 allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
                 
+                const currentLocGrid = locationGrid[item.name];
+
                 DAYS.forEach(day => {
                     allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
                     let time_cursor = 0;
-        
                     while (time_cursor < TIME_SLOTS_HOURLY.length) {
                         const time = TIME_SLOTS_HOURLY[time_cursor];
+                        const apps = currentLocGrid[day][time].filter(app => !app.isContinuation);
                         
-                        const itemsInSlot = [];
-                        for (const levelName in savedSchedules) {
-                            const grid = savedSchedules[levelName];
-                            const potentialCell = grid[day]?.[time]?.[item.name];
-                            if (potentialCell && !potentialCell.isContinuation) {
-                                itemsInSlot.push({ ...potentialCell, level: levelName });
-                            }
-                        }
-        
-                        if (itemsInSlot.length > 0) {
-                            const maxDuration = Math.max(...itemsInSlot.map(app => app.duration || 1));
+                        if (apps.length > 0) {
+                            const maxDuration = Math.max(...apps.map(app => app.duration || 1));
                             allHtml += `<td class="p-1 border align-top h-20" colspan="${maxDuration}">`;
-                            allHtml += '<div class="flex flex-col gap-1">'; 
+                            allHtml += '<div class="flex flex-col gap-1">';
                             
-                            itemsInSlot.forEach(cellData => {
-                                let contentHtml = '';
-                                if (cellData.type === 'custom_activity') {
-                                    contentHtml = `<p class="font-bold">${cellData.name} (${cellData.level})</p><p>${cellData.instructor}</p>`;
-                                } else {
-                                    contentHtml = `<p class="font-bold">${cellData.name} (${cellData.level})</p><p>${cellData.instructor}</p>`;
-                                }
+                            apps.forEach(cellData => {
+                                const contentHtml = `<p class="font-bold">${cellData.name || cellData.text}</p><p>${cellData.instructor}</p><p class="text-xs text-gray-500">${cellData.level}</p>`;
                                 const bgColor = cellData.color || courseColors[cellData.baseName] || '#e5e7eb';
                                 allHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor};">${contentHtml}</div>`;
                             });
-        
+                            
                             allHtml += '</div></td>';
+
+                            // Mark continuation slots
+                            for(let d = 1; d < maxDuration; d++){
+                                const nextTime = time + d;
+                                apps.forEach(app => {
+                                    if(d < app.duration){
+                                        if(!currentLocGrid[day][nextTime]) currentLocGrid[day][nextTime] = [];
+                                        currentLocGrid[day][nextTime].push({...app, isContinuation: true});
+                                    }
+                                });
+                            }
                             time_cursor += maxDuration;
                         } else {
-                            let isContinuationSlot = false;
-                            for (const levelName in savedSchedules) {
-                                if (savedSchedules[levelName][day]?.[time]?.[item.name]?.isContinuation) {
-                                    isContinuationSlot = true;
-                                    break;
-                                }
-                            }
-                            if (!isContinuationSlot) {
-                                allHtml += `<td class="p-1 border align-top h-20"></td>`;
-                            }
+                            allHtml += `<td class="p-1 border align-top h-20"></td>`;
                             time_cursor++;
                         }
                     }
