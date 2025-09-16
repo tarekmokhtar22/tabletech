@@ -615,6 +615,36 @@
                 </div>
             </div>
         </div>
+
+        <div id="location-activity-modal" class="modal">
+            <div class="modal-content">
+                <span id="close-location-activity-modal-btn" class="close-button">&times;</span>
+                <h3 id="location-activity-modal-title" class="text-lg font-bold mb-4">إضافة نشاط للمكان</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">الفرقة الدراسية (اختياري)</label>
+                        <select id="location-activity-level-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">اسم النشاط</label>
+                        <input type="text" id="location-activity-name-input" class="w-full p-2 border rounded-md" placeholder="مشروع تخرج، سيمنار...">
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">العضو المسؤول (اختياري)</label>
+                        <select id="location-activity-instructor-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">المدة بالساعات</label>
+                        <input type="number" id="location-activity-duration-input" class="w-full p-2 border rounded-md" min="1" value="1">
+                    </div>
+                     <div>
+                        <label class="font-bold text-sm text-gray-600">اللون</label>
+                        <input type="color" id="location-activity-color-input" class="w-full p-1 h-10 border rounded-md" value="#a7f3d0">
+                    </div>
+                    <button id="location-activity-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ النشاط</button>
+                </div>
+            </div>
+        </div>
     
     
         <footer class="text-center p-4 mt-8 text-sm text-gray-500 border-t">
@@ -810,6 +840,17 @@
                 durationInput: document.getElementById('level-activity-duration-input'),
                 colorInput: document.getElementById('level-activity-color-input'),
                 saveBtn: document.getElementById('level-activity-modal-save-btn'),
+            },
+            locationActivityModal: {
+                modal: document.getElementById('location-activity-modal'),
+                closeBtn: document.getElementById('close-location-activity-modal-btn'),
+                title: document.getElementById('location-activity-modal-title'),
+                levelSelect: document.getElementById('location-activity-level-select'),
+                nameInput: document.getElementById('location-activity-name-input'),
+                instructorSelect: document.getElementById('location-activity-instructor-select'),
+                durationInput: document.getElementById('location-activity-duration-input'),
+                colorInput: document.getElementById('location-activity-color-input'),
+                saveBtn: document.getElementById('location-activity-modal-save-btn'),
             },
             courseLists: {
                 all: document.getElementById('courses-list-all'),
@@ -1080,6 +1121,9 @@
                     const level = document.getElementById('member-level-filter')?.value || 'all';
                     displayMemberSchedules(search, category, level);
                 }
+                if (activeCustomView === 'locations') {
+                    displayLocationSchedules();
+                }
                 onCollectionLoaded(); 
             }, console.error);
             onSnapshot(query(locationsCol), s => { locations = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLocations(); onCollectionLoaded(); }, console.error);
@@ -1089,6 +1133,15 @@
                 s.docs.forEach(d => { try { savedSchedules[d.id] = JSON.parse(d.data().grid); } catch (e) { console.error("Error parsing saved schedule:", e); } });
                 handleLevelFilterChange();
                 detectAndDisplayConflicts();
+                if (activeCustomView === 'members') {
+                    const search = document.getElementById('member-search-input')?.value || '';
+                    const category = document.querySelector('input[name="category"]:checked')?.value || 'all';
+                    const level = document.getElementById('member-level-filter')?.value || 'all';
+                    displayMemberSchedules(search, category, level);
+                }
+                if (activeCustomView === 'locations') {
+                    displayLocationSchedules();
+                }
                 onCollectionLoaded();
             }, console.error);
         }
@@ -1226,7 +1279,7 @@
                 detectAndDisplayConflicts();
             });
             
-            [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.dropActionModal.cancelBtn].forEach(btn => {
+            [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.dropActionModal.cancelBtn, dom.locationActivityModal.closeBtn].forEach(btn => {
                 if(btn) btn.onclick = () => btn.closest('.modal').style.display = "none";
             });
             window.onclick = (event) => { 
@@ -2120,7 +2173,8 @@
                             }
                             time_cursor += maxDuration;
                         } else {
-                            allHtml += `<td class="p-1 border align-top h-20"></td>`;
+                            const addActivityClickHandler = userRole === 'admin' ? `onclick="window.openLocationActivityModal('${item.name}', '${day}', ${time})"` : '';
+                            allHtml += `<td class="p-1 border align-top h-20 empty-slot" ${addActivityClickHandler}></td>`;
                             time_cursor++;
                         }
                     }
@@ -2907,7 +2961,101 @@
                 }
             });
         }
+
+        window.openLocationActivityModal = (locationName, day, time) => {
+            if (userRole === 'guest') return;
+
+            const modal = dom.locationActivityModal;
+            modal.title.textContent = `إضافة نشاط في: ${locationName} - ${day} الساعة ${formatTimeSlot(time)}`;
+            
+            modal.levelSelect.innerHTML = '<option value="">(نشاط عام - غير مرتبط بفرقة)</option>' + levels.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+            modal.instructorSelect.innerHTML = '<option value="">(بدون عضو)</option>' + instructors.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+            
+            modal.nameInput.value = '';
+            modal.durationInput.value = '1';
+            modal.colorInput.value = '#a7f3d0';
+
+            modal.modal.style.display = 'block';
+
+            modal.saveBtn.onclick = () => handleSaveLocationActivity(locationName, day, time);
+        };
+
+        async function handleSaveLocationActivity(locationName, day, time) {
+            const modal = dom.locationActivityModal;
+            const level = modal.levelSelect.value;
+            const activityName = modal.nameInput.value.trim();
+            const instructorName = modal.instructorSelect.value;
+            const duration = parseInt(modal.durationInput.value);
+            const color = modal.colorInput.value;
+
+            if (!activityName || !duration) {
+                showToast('يرجى ملء اسم النشاط والمدة.', 'error');
+                return;
+            }
+
+            // Case 1: Activity is tied to a specific level's schedule
+            if (level) {
+                let grid = savedSchedules[level] ? JSON.parse(JSON.stringify(savedSchedules[level])) : {};
+
+                for (let i = 0; i < duration; i++) {
+                    if (grid[day]?.[time + i]?.[locationName]) {
+                        showToast('حدث تضارب. المكان مشغول في هذا التوقيت للفرقة المختارة.', 'error');
+                        return;
+                    }
+                }
+
+                const activityData = {
+                    id: `activity_${Date.now()}`,
+                    type: 'custom_activity',
+                    name: activityName,
+                    instructor: instructorName || 'غير محدد',
+                    duration: duration,
+                    baseName: activityName, 
+                    color: color,
+                };
+
+                for (let i = 0; i < duration; i++) {
+                    if (!grid[day]) grid[day] = {};
+                    if (!grid[day][time + i]) grid[day][time + i] = {};
+                    grid[day][time + i][locationName] = { ...activityData, isContinuation: i > 0 };
+                }
+                
+                await saveScheduleToFirebase(level, grid);
+                modal.modal.style.display = 'none';
+                showToast('تم إضافة النشاط للفرقة بنجاح!');
+            } 
+            // Case 2: General activity (not tied to a level), saved to the instructor
+            else {
+                if (!instructorName) {
+                    showToast('للأنشطة العامة غير المرتبطة بفرقة، يجب تحديد عضو مسؤول.', 'error');
+                    return;
+                }
+                
+                const instructor = instructors.find(i => i.name === instructorName);
+                if (!instructor) {
+                     showToast('لم يتم العثور على العضو المحدد.', 'error');
+                     return;
+                }
+                
+                const instructorRef = doc(db, instructorsCol.path, instructor.id);
+                const newActivityId = `act_${Date.now()}`;
+                const key = `customActivities.${newActivityId}`;
+                
+                const activityData = {
+                    text: activityName,
+                    duration,
+                    location: locationName,
+                    day,
+                    time
+                };
+
+                await updateDoc(instructorRef, { [key]: activityData });
+                modal.modal.style.display = 'none';
+                showToast("تم حفظ النشاط كنشاط عام للعضو.");
+            }
+        }
     </script>
 </body>
 </html>
+
 
