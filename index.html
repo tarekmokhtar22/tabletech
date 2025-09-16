@@ -10,25 +10,178 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        body { font-family: 'Cairo', sans-serif; scroll-behavior: smooth; }
+        /* General Styles */
+        body, html {
+			height: 100%;
+			font-family: 'Cairo', sans-serif;
+            scroll-behavior: smooth;
+		}
+
+        .hidden {
+            display: none;
+        }
+
+        /* Login Page Styles */
+		.container-login {
+			width: 100%;
+			min-height: 100vh;
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			align-items: center;
+			padding: 15px;
+			background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e, #3a6186, #89253e);
+			background-size: 400% 400%;
+			animation: gradientAnimation 15s ease infinite;
+		}
+		@keyframes gradientAnimation {
+			0% { background-position: 0% 50%; }
+			50% { background-position: 100% 50%; }
+			100% { background-position: 0% 50%; }
+		}
+		.wrap-login {
+			width: 400px;
+			background: rgba(255, 255, 255, 0.95);
+			border-radius: 20px;
+			overflow: hidden;
+			padding: 60px 55px 40px 55px;
+			box-shadow: 0 10px 30px 0px rgba(0, 0, 0, 0.2);
+			backdrop-filter: blur(10px);
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			transition: height 0.3s ease-in-out;
+		}
+		.login-form-title {
+			display: block;
+			font-size: 32px;
+			color: #333333;
+			line-height: 1.2;
+			text-align: center;
+			padding-bottom: 40px;
+			font-weight: 700;
+		}
+		.wrap-input {
+			position: relative;
+			width: 100%;
+			z-index: 1;
+			margin-bottom: 15px;
+			transition: opacity 0.5s, max-height 0.5s, margin 0.5s, padding 0.5s;
+			overflow: hidden;
+			max-height: 65px;
+		}
+        .wrap-input.hidden {
+            max-height: 0;
+            opacity: 0;
+            margin-bottom: 0;
+            pointer-events: none;
+        }
+		.input {
+			font-size: 16px;
+			line-height: 1.5;
+			color: #555;
+			display: block;
+			width: 100%;
+			background: #e6e6e6;
+			height: 50px;
+			border-radius: 25px;
+			padding: 0 30px 0 68px;
+			outline: none;
+			border: none;
+		}
+		.focus-input {
+			display: block;
+			position: absolute;
+			border-radius: 25px;
+			bottom: 0;
+			left: 0;
+			z-index: -1;
+			width: 100%;
+			height: 100%;
+			box-shadow: 0px 0px 0px 0px;
+			color: rgba(147, 112, 219, 0.8);
+		}
+		.input:focus + .focus-input {
+			animation: anim-shadow 0.5s ease-in-out forwards;
+		}
+		@keyframes anim-shadow { to { box-shadow: 0px 0px 70px 25px; opacity: 0; } }
+		.symbol-input {
+			font-size: 16px;
+			display: flex;
+			align-items: center;
+			position: absolute;
+			border-radius: 25px;
+			bottom: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			padding-left: 35px;
+			pointer-events: none;
+			color: #666666;
+			transition: all 0.4s;
+		}
+		.input:focus ~ .symbol-input { color: #8a2be2; }
+		.container-login-form-btn {
+			width: 100%;
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			padding-top: 10px;
+		}
+		.login-form-btn {
+			font-size: 16px;
+			font-weight: 700;
+			line-height: 1.5;
+			color: #fff;
+			text-transform: uppercase;
+			width: 100%;
+			height: 50px;
+			border-radius: 25px;
+			background: #8e44ad;
+			background: -webkit-linear-gradient(right, #8e44ad, #4a00e0);
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding: 0 25px;
+			transition: all 0.4s;
+			border: none;
+			cursor: pointer;
+		}
+		.login-form-btn:hover {
+			transform: translateY(-3px);
+			box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+		}
+		#error-message {
+			color: #dc3545;
+			text-align: center;
+			font-size: 14px;
+			height: 20px;
+			transition: opacity 0.3s;
+            margin-top: 10px;
+		}
+		.guest-toggle { text-align: center; padding: 15px 0 5px 0; }
+		.guest-toggle-link {
+			font-size: 14px;
+			color: #666666;
+			text-decoration: none;
+			transition: color 0.3s;
+			cursor: pointer;
+		}
+		.guest-toggle-link:hover { color: #8e44ad; text-decoration: underline; }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+
+        /* Main App Styles */
         .schedule-item { padding: 4px; border-radius: 6px; margin-bottom: 4px; cursor: pointer; transition: all 0.2s; color: #1f2937; box-shadow: 0 2px 4px rgba(0,0,0,0.05); line-height: 1.3; position: relative; border: 2px solid transparent; }
         .schedule-item:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
         .schedule-item[draggable="true"]:active { cursor: grabbing; box-shadow: 0 4px 8px rgba(0,0,0,0.1); transform: scale(1.05); }
         .drop-target { display: flex; flex-direction: column; gap: 2px; min-height: 50px; border-radius: 6px; transition: background-color 0.2s; }
         .drag-over { background-color: #dcfce7; border: 2px dashed #4ade80; }
-        
-        .session-lab {
-            padding: 2px 4px;
-            font-size: 10px;
-            line-height: 1.2;
-            border-left: 4px solid #14b8a6 !important; /* Teal color */
-        }
-        
-        /* Conflict Styling */
+        .session-lab { padding: 2px 4px; font-size: 10px; line-height: 1.2; border-left: 4px solid #14b8a6 !important; }
         .conflict-item-visual { border-color: #ef4444 !important; animation: pulse-red 2s infinite; }
         .conflict-badge { position: absolute; top: 2px; left: 2px; background-color: #ef4444; color: white; font-size: 10px; padding: 1px 5px; border-radius: 99px; font-weight: bold; z-index: 10; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
         @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); } }
-
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s; }
         .modal-content { background-color: #fefefe; margin: 10% auto; padding: 24px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideIn 0.3s; }
         .close-button { color: #aaa; float: left; font-size: 28px; font-weight: bold; cursor: pointer; }
@@ -39,37 +192,51 @@
         input[type="color"] { -webkit-appearance: none; -moz-appearance: none; appearance: none; background-color: transparent; width: 100%; height: 40px; border: 1px solid #ccc; border-radius: 0.375rem; cursor: pointer; padding: 2px; }
         input[type="color"]::-webkit-color-swatch { border-radius: 4px; border: none; }
         input[type="color"]::-moz-color-swatch { border-radius: 4px; border: none; }
-        
-        /* Animations */
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         @keyframes slideIn { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .list-item { transition: all 0.4s ease-in-out; }
         .list-item.fade-out { opacity: 0; transform: scale(0.9); }
         .list-item.fade-in { animation: fadeIn 0.5s; }
-        
         details > summary { list-style: none; }
         details > summary::-webkit-details-marker { display: none; }
-        
-        /* Toast Notifications */
         #toast-container { position: fixed; bottom: 20px; left: 20px; z-index: 2000; }
         .toast { padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: white; font-weight: 600; margin-bottom: 10px; animation: slideIn 0.5s, fadeOut 0.5s 3.5s; opacity: 0; animation-fill-mode: forwards; }
         .toast.success { background-color: #28a745; }
         .toast.error { background-color: #dc3545; }
-
-        /* Button loading spinner */
         .spinner { border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 50%; border-top-color: #fff; width: 16px; height: 16px; animation: spin 1s ease-in-out infinite; margin-right: 8px;}
         @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* Cleaner lists */
         .list-item .control-buttons { opacity: 0; transition: opacity 0.2s; }
         .list-item:hover .control-buttons { opacity: 1; }
-
-        /* Copy Button & Selectable Tables */
         .table-container { position: relative; }
         .copy-btn { position: absolute; top: 10px; left: 10px; background-color: #f3f4f6; border: 1px solid #d1d5db; border-radius: 9999px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; z-index: 10; }
         .copy-btn:hover { background-color: #e5e7eb; transform: scale(1.1); }
         table, .schedule-item { user-select: text; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; }
+
+        /* Read-only styles for guest mode */
+        #app-section.read-only #top-controls,
+        #app-section.read-only form,
+        #app-section.read-only .control-buttons,
+        #app-section.read-only .fa-cog,
+        #app-section.read-only #generate-btn,
+        #app-section.read-only #reset-btn,
+        #app-section.read-only #load-btn,
+        #app-section.read-only #show-conflicts-btn,
+        #app-section.read-only #export-btn,
+        #app-section.read-only #print-btn,
+        #app-section.read-only #refresh-btn {
+            display: none !important;
+        }
+
+        #app-section.read-only .schedule-item,
+        #app-section.read-only .empty-slot {
+            cursor: default !important;
+        }
+        
+        #app-section.read-only .list-item:hover .control-buttons {
+            opacity: 0 !important;
+        }
+
 
         @media print {
             body * { visibility: hidden; }
@@ -84,338 +251,464 @@
 </head>
 <body class="bg-gray-100 text-gray-800">
 
-    <div id="toast-container"></div>
-
-    <div class="container mx-auto p-4 md:p-8">
-        <header class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-700">الجداول الرائع جداً</h1>
-            <p class="text-gray-500 mt-2">مع الحفظ السحابي، الفرق الدراسية، التعديل اليداوي و الي مش يداوي، كشف التضارب و الخناقات، الخ...</p>
-        </header>
-
-        <div id="loading-indicator" class="text-center p-8"> <i class="fas fa-spinner fa-spin fa-3x text-sky-500"></i> <p class="mt-4 text-gray-600">جاري تحميل البيانات...</p> </div>
-
-        <div id="main-content" class="hidden">
-            <!-- New Top Controls Panel -->
-            <div id="top-controls" class="bg-white p-4 rounded-xl shadow-md mb-8 print-hidden">
-                <details class="group">
-                    <summary class="flex justify-between items-center font-medium cursor-pointer">
-                        <h2 class="text-xl font-bold text-gray-600">إدارة البيانات الأساسية والإعدادات</h2>
-                        <span class="transition-transform duration-300 group-open:rotate-180">
-                            <i class="fas fa-chevron-down"></i>
+    <div id="login-section">
+        <div class="container-login">
+            <div class="wrap-login">
+                <form class="login-form" id="loginForm">
+                    <span class="login-form-title">
+                        تسجيل الدخول
+                    </span>
+    
+                    <!-- Username Input -->
+                    <div class="wrap-input" id="username-wrapper">
+                        <input class="input" type="text" name="username" id="usernameInput" placeholder="اسم المستخدم">
+                        <span class="focus-input"></span>
+                        <span class="symbol-input">
+                            <i class="fa fa-user" aria-hidden="true"></i>
                         </span>
-                    </summary>
-                    <div class="text-neutral-600 mt-4 pt-4 border-t">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            
-                            <div class="space-y-4 bg-gray-50 p-4 rounded-lg border">
-                                <div>
-                                    <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
-                                        <span>1. الفرق الدراسية</span>
-                                        <a href="#" onclick="window.showAdvancedLevelsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
-                                    </h3>
-                                    <form id="level-form" class="flex gap-2 mt-2">
-                                        <input type="text" id="level-name" placeholder="اسم الفرقة" class="w-full p-2 border rounded-md" required>
-                                        <button type="submit" class="bg-green-500 text-white font-bold p-2 px-4 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                    </form>
-                                    <div id="levels-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                    </div>
+    
+                    <!-- Password Input -->
+                    <div class="wrap-input">
+                        <input class="input" type="password" name="pass" id="passwordInput" placeholder="كلمة المرور">
+                        <span class="focus-input"></span>
+                        <span class="symbol-input">
+                            <i class="fa fa-lock" aria-hidden="true"></i>
+                        </span>
+                    </div>
+                    
+                    <!-- Guest Toggle Link -->
+                    <div class="guest-toggle">
+                        <a id="guest-login-toggle" class="guest-toggle-link">دخول كضيف</a>
+                    </div>
+    
+                    <div id="error-message"></div>
+    
+                    <!-- Login Button -->
+                    <div class="container-login-form-btn">
+                        <button type="submit" class="login-form-btn">
+                            دخول
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div id="app-section" class="hidden">
+        <div id="toast-container"></div>
+        <div class="container mx-auto p-4 md:p-8">
+            <header class="text-center mb-8 relative">
+                <button id="logout-btn" class="absolute top-0 left-0 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 shadow-lg transition-transform hover:scale-105"><i class="fas fa-sign-out-alt mr-2"></i>تسجيل الخروج</button>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-700">الجداول الرائع جداً</h1>
+                <p class="text-gray-500 mt-2">مع الحفظ السحابي، الفرق الدراسية، التعديل اليداوي و الي مش يداوي، كشف التضارب و الخناقات، الخ...</p>
+            </header>
+    
+            <div id="loading-indicator" class="text-center p-8"> <i class="fas fa-spinner fa-spin fa-3x text-sky-500"></i> <p class="mt-4 text-gray-600">جاري تحميل البيانات...</p> </div>
+    
+            <div id="main-content" class="hidden">
+                <!-- New Top Controls Panel -->
+                <div id="top-controls" class="bg-white p-4 rounded-xl shadow-md mb-8 print-hidden">
+                    <details class="group">
+                        <summary class="flex justify-between items-center font-medium cursor-pointer">
+                            <h2 class="text-xl font-bold text-gray-600">إدارة البيانات الأساسية والإعدادات</h2>
+                            <span class="transition-transform duration-300 group-open:rotate-180">
+                                <i class="fas fa-chevron-down"></i>
+                            </span>
+                        </summary>
+                        <div class="text-neutral-600 mt-4 pt-4 border-t">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                
+                                <div class="space-y-4 bg-gray-50 p-4 rounded-lg border">
+                                    <div>
+                                        <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
+                                            <span>1. الفرق الدراسية</span>
+                                            <a href="#" onclick="window.showAdvancedLevelsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
+                                        </h3>
+                                        <form id="level-form" class="flex gap-2 mt-2">
+                                            <input type="text" id="level-name" placeholder="اسم الفرقة" class="w-full p-2 border rounded-md" required>
+                                            <button type="submit" class="bg-green-500 text-white font-bold p-2 px-4 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                        </form>
+                                        <div id="levels-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                    </div>
+                                    <div>
+                                        <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
+                                        <form id="group-form" class="space-y-2 mt-2">
+                                            <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+                                            <div class="flex gap-2">
+                                                <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
+                                                <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                            </div>
+                                        </form>
+                                        <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
-                                    <form id="group-form" class="space-y-2 mt-2">
-                                        <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+    
+                                <div class="bg-gray-50 p-4 rounded-lg border">
+                                    <h3 class="text-lg font-bold text-gray-600">3. المواد الدراسية</h3>
+                                    <form id="subject-form" class="space-y-2 mt-2">
+                                        <select id="subject-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
                                         <div class="flex gap-2">
-                                            <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
-                                            <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                            <input type="text" id="subject-name" placeholder="اسم المادة" class="w-full p-2 border rounded-md" required>
+                                            <button type="submit" class="bg-purple-500 text-white font-bold p-2 px-4 rounded-md hover:bg-purple-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
                                         </div>
                                     </form>
-                                    <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                    <div id="subjects-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
                                 </div>
+    
+                                <div class="bg-gray-50 p-4 rounded-lg border">
+                                     <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
+                                        <span>4. الأعضاء</span>
+                                        <a href="#" onclick="window.showAdvancedInstructorsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
+                                    </h3>
+                                    <form id="instructor-form" class="space-y-2 mt-2">
+                                        <input type="text" id="instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md" required>
+                                        <select id="instructor-category-select" class="w-full p-2 border rounded-md">
+                                            <option value="عضو هيئة تدريس">عضو هيئة تدريس</option> <option value="معاونون">معاونون</option> <option value="منتدبون">منتدبون</option> <option value="اعضاء من الخارج">اعضاء من الخارج</option>
+                                        </select>
+                                        <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 flex items-center justify-center">إضافة عضو</button>
+                                    </form>
+                                    <div id="instructors-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                                </div>
+                                
+                                <div class="bg-gray-50 p-4 rounded-lg border">
+                                    <h3 class="text-lg font-bold text-gray-600">5. الأماكن</h3>
+                                    <form id="location-form" class="space-y-2 mt-2">
+                                        <input type="text" id="location-name" placeholder="اسم المكان" class="w-full p-2 border rounded-md" required>
+                                        <select id="location-type" class="w-full p-2 border rounded-md">
+                                            <option value="قاعة">قاعة</option> <option value="معمل">معمل</option> <option value="مدرج">مدرج</option>
+                                        </select>
+                                        <button type="submit" class="w-full bg-cyan-500 text-white font-bold py-2 rounded-md hover:bg-cyan-600 flex items-center justify-center">إضافة المكان</button>
+                                    </form>
+                                    <div id="locations-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                </div>
+    
                             </div>
-
-                            <div class="bg-gray-50 p-4 rounded-lg border">
-                                <h3 class="text-lg font-bold text-gray-600">3. المواد الدراسية</h3>
-                                <form id="subject-form" class="space-y-2 mt-2">
-                                    <select id="subject-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
-                                    <div class="flex gap-2">
-                                        <input type="text" id="subject-name" placeholder="اسم المادة" class="w-full p-2 border rounded-md" required>
-                                        <button type="submit" class="bg-purple-500 text-white font-bold p-2 px-4 rounded-md hover:bg-purple-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                    </div>
-                                </form>
-                                <div id="subjects-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                        </div>
+                    </details>
+                </div>
+                
+                <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
+                    <button id="generate-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-sync-alt mr-2"></i>تحديث الجدول</button>
+                    <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
+                    <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
+                    <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
+                    <button id="export-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-export mr-2"></i>تصدير</button>
+                    <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
+                    <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
+                    <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
+                    <button id="reset-btn" class="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-trash-alt mr-2"></i>جديد</button>
+                    <input type="file" id="file-loader" class="hidden" accept=".json">
+                </div>
+                
+                <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex items-center gap-4">
+                    <label for="level-filter-select" class="font-bold text-gray-600">عرض جدول:</label>
+                    <select id="level-filter-select" class="w-full p-2 border rounded-md text-xl font-bold"></select>
+                </div>
+                
+                <div id="summary-table-container" class="my-6"></div>
+                <div id="unscheduled-output" class="my-6"></div>
+                <div id="conflict-output" class="my-6"></div>
+    
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 space-y-6">
+                        <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-600">إضافة محاضرة / سكشن</h2>
+                            <form id="course-form" class="space-y-4">
+                                <select id="course-name-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة الرئيسية أولاً...</option></select>
+                                <select id="instructor-select" class="w-full p-2 border rounded-md" required><option value="">اختر العضو...</option></select>
+                                <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
+                                <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
+                                
+                                <div id="group-select-container">
+                                    <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
+                                    <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
+                                </div>
+    
+                                <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
+                                <div>
+                                    <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
+                                    <input type="number" id="duration" class="w-full p-2 border rounded-md" min="1" value="2" required>
+                                </div>
+                                <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center">إضافة للجدول</button>
+                            </form>
+                        </div>
+                         <div class="bg-white p-6 rounded-xl shadow-md">
+                            <h2 class="text-xl font-bold mb-4 text-gray-600">قائمة المحاضرات والسكاشن</h2>
+                             <div class="flex border-b mb-4">
+                                <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
+                                <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
+                                <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
                             </div>
-
-                            <div class="bg-gray-50 p-4 rounded-lg border">
-                                 <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
-                                    <span>4. الأعضاء</span>
-                                    <a href="#" onclick="window.showAdvancedInstructorsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
-                                </h3>
-                                <form id="instructor-form" class="space-y-2 mt-2">
-                                    <input type="text" id="instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md" required>
-                                    <select id="instructor-category-select" class="w-full p-2 border rounded-md">
-                                        <option value="عضو هيئة تدريس">عضو هيئة تدريس</option> <option value="معاونون">معاونون</option> <option value="منتدبون">منتدبون</option> <option value="اعضاء من الخارج">اعضاء من الخارج</option>
-                                    </select>
-                                    <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 flex items-center justify-center">إضافة عضو</button>
-                                </form>
-                                <div id="instructors-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                            <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
+                                <div id="courses-list-all"></div>
+                                <div id="courses-list-lectures" class="hidden"></div>
+                                <div id="courses-list-labs" class="hidden"></div>
                             </div>
-                            
-                            <div class="bg-gray-50 p-4 rounded-lg border">
-                                <h3 class="text-lg font-bold text-gray-600">5. الأماكن</h3>
-                                <form id="location-form" class="space-y-2 mt-2">
-                                    <input type="text" id="location-name" placeholder="اسم المكان" class="w-full p-2 border rounded-md" required>
-                                    <select id="location-type" class="w-full p-2 border rounded-md">
-                                        <option value="قاعة">قاعة</option> <option value="معمل">معمل</option> <option value="مدرج">مدرج</option>
-                                    </select>
-                                    <button type="submit" class="w-full bg-cyan-500 text-white font-bold py-2 rounded-md hover:bg-cyan-600 flex items-center justify-center">إضافة المكان</button>
-                                </form>
-                                <div id="locations-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                            </div>
-
                         </div>
                     </div>
-                </details>
-            </div>
-            
-            <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
-                <button id="generate-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-sync-alt mr-2"></i>تحديث الجدول</button>
-                <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
-                <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
-                <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
-                <button id="export-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-export mr-2"></i>تصدير</button>
-                <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
-                <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
-                <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
-                <button id="reset-btn" class="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-trash-alt mr-2"></i>جديد</button>
-                <input type="file" id="file-loader" class="hidden" accept=".json">
-            </div>
-            
-            <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex items-center gap-4">
-                <label for="level-filter-select" class="font-bold text-gray-600">عرض جدول:</label>
-                <select id="level-filter-select" class="w-full p-2 border rounded-md text-xl font-bold"></select>
-            </div>
-            
-            <div id="summary-table-container" class="my-6"></div>
-            <div id="unscheduled-output" class="my-6"></div>
-            <div id="conflict-output" class="my-6"></div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-1 space-y-6">
-                    <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-600">إضافة محاضرة / سكشن</h2>
-                        <form id="course-form" class="space-y-4">
-                            <select id="course-name-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة الرئيسية أولاً...</option></select>
-                            <select id="instructor-select" class="w-full p-2 border rounded-md" required><option value="">اختر العضو...</option></select>
-                            <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
-                            <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
-                            
-                            <div id="group-select-container">
-                                <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
-                                <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
-                            </div>
-
-                            <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
-                            <div>
-                                <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
-                                <input type="number" id="duration" class="w-full p-2 border rounded-md" min="1" value="2" required>
-                            </div>
-                            <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center">إضافة للجدول</button>
-                        </form>
-                    </div>
-                     <div class="bg-white p-6 rounded-xl shadow-md">
-                        <h2 class="text-xl font-bold mb-4 text-gray-600">قائمة المحاضرات والسكاشن</h2>
-                         <div class="flex border-b mb-4">
-                            <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
-                            <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
-                            <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
-                        </div>
-                        <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
-                            <div id="courses-list-all"></div>
-                            <div id="courses-list-lectures" class="hidden"></div>
-                            <div id="courses-list-labs" class="hidden"></div>
+    
+                    <div class="lg:col-span-2">
+                        <div id="schedule-output-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg min-w-full overflow-x-auto h-full">
+                            <div id="schedule-output"></div>
                         </div>
                     </div>
                 </div>
-
-                <div class="lg:col-span-2">
-                    <div id="schedule-output-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg min-w-full overflow-x-auto h-full">
-                        <div id="schedule-output"></div>
+            </div>
+    
+            <!-- Advanced Views -->
+            <div id="advanced-levels-view" class="hidden"></div>
+            <div id="advanced-instructors-view" class="hidden"></div>
+        </div>
+        
+        <div id="custom-views-container" class="container mx-auto p-4 md:p-8">
+            <div class="flex justify-between items-center mb-6 print-hidden">
+                <button id="hide-custom-view-btn" class="hidden bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">
+                    <i class="fas fa-eye-slash mr-2"></i>إخفاء الجداول الإضافية
+                </button>
+                <button id="refresh-custom-view-btn" class="hidden bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600">
+                    <i class="fas fa-sync-alt mr-2"></i>تحديث البيانات
+                </button>
+            </div>
+            <div id="custom-schedule-output" class="mt-8 space-y-12"></div>
+        </div>
+    
+        <!-- Modals -->
+        <div id="confirm-modal" class="modal">
+            <div class="modal-content">
+                <h3 id="confirm-modal-title" class="text-lg font-bold mb-4">تأكيد الإجراء</h3>
+                <p id="confirm-modal-text" class="mb-6"></p>
+                <div id="confirm-modal-details" class="mb-4 text-sm text-gray-600 max-h-40 overflow-y-auto"></div>
+                <div class="flex justify-end gap-4">
+                    <button id="confirm-modal-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
+                    <button id="confirm-modal-confirm-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">تأكيد الحذف</button>
+                </div>
+            </div>
+        </div>
+        <div id="edit-modal" class="modal"> <div class="modal-content"> <span id="close-edit-modal-btn" class="close-button">&times;</span> <h3 id="edit-modal-title" class="text-lg font-bold mb-4"></h3> <div class="space-y-4"> <input type="text" id="edit-modal-input" class="w-full p-2 border rounded-md"> <button id="edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ</button> </div> </div> </div>
+        <div id="availability-modal" class="modal"> <div class="modal-content"> <span id="close-availability-modal-btn" class="close-button">&times;</span> <h3 id="availability-modal-title" class="text-lg font-bold mb-4"></h3> <p class="text-sm text-gray-500 mb-4">حدد الساعات المتاحة.</p> <div id="availability-grid" class="space-y-2"></div> <button id="availability-modal-save-btn" class="w-full mt-4 bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ</button> </div> </div>
+        
+        <div id="course-edit-modal" class="modal">
+            <div class="modal-content">
+                <span id="close-course-edit-modal-btn" class="close-button">&times;</span>
+                <h3 id="course-edit-modal-title" class="text-lg font-bold mb-4">تعديل بيانات المقرر</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">اسم المقرر (المادة الأساسية)</label>
+                        <input type="text" id="course-edit-subject-name-input" class="w-full p-2 border rounded-md">
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Advanced Views -->
-        <div id="advanced-levels-view" class="hidden"></div>
-        <div id="advanced-instructors-view" class="hidden"></div>
-    </div>
+                    <div id="course-edit-section-name-container" class="hidden">
+                         <label class="font-bold text-sm text-gray-600">اسم السكشن المحدد</label>
+                         <input type="text" id="course-edit-section-name-input" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">العضو</label>
+                        <select id="course-edit-instructor-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                     <div id="course-edit-group-select-container">
+                        <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
+                        <select id="course-edit-group-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">المكان</label>
+                        <select id="course-edit-location-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                     <div>
+                        <label class="font-bold text-sm text-gray-600">اللون</label>
+                        <input type="color" id="course-edit-color-input" class="w-full p-1 h-10 border rounded-md">
+                    </div>
+                    <button id="course-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
+                    <button id="course-edit-modal-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2">حذف من الجدول</button>
+                    <button id="course-edit-modal-split-btn" class="w-full bg-yellow-500 text-white font-bold py-2 rounded-md hover:bg-yellow-600 mt-2 hidden">فصل المقرر</button>
+                    <button id="course-edit-modal-merge-btn" class="w-full bg-blue-500 text-white font-bold py-2 rounded-md hover:bg-blue-600 mt-2 hidden">دمج المقرر</button>
     
-    <div id="custom-views-container" class="container mx-auto p-4 md:p-8">
-        <div class="flex justify-between items-center mb-6 print-hidden">
-            <button id="hide-custom-view-btn" class="hidden bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">
-                <i class="fas fa-eye-slash mr-2"></i>إخفاء الجداول الإضافية
-            </button>
-            <button id="refresh-custom-view-btn" class="hidden bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600">
-                <i class="fas fa-sync-alt mr-2"></i>تحديث البيانات
-            </button>
-        </div>
-        <div id="custom-schedule-output" class="mt-8 space-y-12"></div>
-    </div>
-
-    <!-- Modals -->
-    <div id="confirm-modal" class="modal">
-        <div class="modal-content">
-            <h3 id="confirm-modal-title" class="text-lg font-bold mb-4">تأكيد الإجراء</h3>
-            <p id="confirm-modal-text" class="mb-6"></p>
-            <div id="confirm-modal-details" class="mb-4 text-sm text-gray-600 max-h-40 overflow-y-auto"></div>
-            <div class="flex justify-end gap-4">
-                <button id="confirm-modal-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
-                <button id="confirm-modal-confirm-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">تأكيد الحذف</button>
+                </div>
             </div>
         </div>
-    </div>
-    <div id="edit-modal" class="modal"> <div class="modal-content"> <span id="close-edit-modal-btn" class="close-button">&times;</span> <h3 id="edit-modal-title" class="text-lg font-bold mb-4"></h3> <div class="space-y-4"> <input type="text" id="edit-modal-input" class="w-full p-2 border rounded-md"> <button id="edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ</button> </div> </div> </div>
-    <div id="availability-modal" class="modal"> <div class="modal-content"> <span id="close-availability-modal-btn" class="close-button">&times;</span> <h3 id="availability-modal-title" class="text-lg font-bold mb-4"></h3> <p class="text-sm text-gray-500 mb-4">حدد الساعات المتاحة.</p> <div id="availability-grid" class="space-y-2"></div> <button id="availability-modal-save-btn" class="w-full mt-4 bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ</button> </div> </div>
     
-    <div id="course-edit-modal" class="modal">
-        <div class="modal-content">
-            <span id="close-course-edit-modal-btn" class="close-button">&times;</span>
-            <h3 id="course-edit-modal-title" class="text-lg font-bold mb-4">تعديل بيانات المقرر</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="font-bold text-sm text-gray-600">اسم المقرر (المادة الأساسية)</label>
-                    <input type="text" id="course-edit-subject-name-input" class="w-full p-2 border rounded-md">
+        <div id="location-edit-modal" class="modal">
+            <div class="modal-content">
+                <span id="close-location-edit-modal-btn" class="close-button">&times;</span>
+                <h3 class="text-lg font-bold mb-4">تعديل المكان</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">اسم المكان</label>
+                        <input type="text" id="location-edit-name-input" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">نوع المكان</label>
+                        <select id="location-edit-type-select" class="w-full p-2 border rounded-md">
+                            <option value="قاعة">قاعة</option>
+                            <option value="معمل">معمل</option>
+                            <option value="مدرج">مدرج</option>
+                        </select>
+                    </div>
+                    <button id="location-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
                 </div>
-                <div id="course-edit-section-name-container" class="hidden">
-                     <label class="font-bold text-sm text-gray-600">اسم السكشن المحدد</label>
-                     <input type="text" id="course-edit-section-name-input" class="w-full p-2 border rounded-md">
-                </div>
-                <div>
-                    <label class="font-bold text-sm text-gray-600">العضو</label>
-                    <select id="course-edit-instructor-select" class="w-full p-2 border rounded-md"></select>
-                </div>
-                 <div id="course-edit-group-select-container">
-                    <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
-                    <select id="course-edit-group-select" class="w-full p-2 border rounded-md"></select>
-                </div>
-                <div>
-                    <label class="font-bold text-sm text-gray-600">المكان</label>
-                    <select id="course-edit-location-select" class="w-full p-2 border rounded-md"></select>
-                </div>
-                 <div>
-                    <label class="font-bold text-sm text-gray-600">اللون</label>
-                    <input type="color" id="course-edit-color-input" class="w-full p-1 h-10 border rounded-md">
-                </div>
-                <button id="course-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
-                <button id="course-edit-modal-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2">حذف من الجدول</button>
-                <button id="course-edit-modal-split-btn" class="w-full bg-yellow-500 text-white font-bold py-2 rounded-md hover:bg-yellow-600 mt-2 hidden">فصل المقرر</button>
-                <button id="course-edit-modal-merge-btn" class="w-full bg-blue-500 text-white font-bold py-2 rounded-md hover:bg-blue-600 mt-2 hidden">دمج المقرر</button>
-
             </div>
         </div>
-    </div>
-
-    <div id="location-edit-modal" class="modal">
-        <div class="modal-content">
-            <span id="close-location-edit-modal-btn" class="close-button">&times;</span>
-            <h3 class="text-lg font-bold mb-4">تعديل المكان</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="font-bold text-sm text-gray-600">اسم المكان</label>
-                    <input type="text" id="location-edit-name-input" class="w-full p-2 border rounded-md">
-                </div>
-                <div>
-                    <label class="font-bold text-sm text-gray-600">نوع المكان</label>
-                    <select id="location-edit-type-select" class="w-full p-2 border rounded-md">
-                        <option value="قاعة">قاعة</option>
-                        <option value="معمل">معمل</option>
-                        <option value="مدرج">مدرج</option>
-                    </select>
-                </div>
-                <button id="location-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="drop-action-modal" class="modal">
-        <div class="modal-content">
-            <h3 class="text-lg font-bold mb-4">اختر الإجراء</h3>
-            <p class="mb-6">ماذا تريد أن تفعل بهذا المقرر؟</p>
-            <div class="flex justify-end gap-4">
-                <button id="drop-action-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
-                <button id="drop-action-insert-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">إدراج معًا</button>
-                <button id="drop-action-swap-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">تبديل</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="custom-activity-modal" class="modal">
-        <div class="modal-content">
-            <span id="close-custom-activity-modal-btn" class="close-button">&times;</span>
-            <h3 id="custom-activity-modal-title" class="text-lg font-bold mb-4">إضافة نشاط مخصص</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="font-bold">النشاط:</label>
-                    <input type="text" id="custom-activity-text" class="w-full p-2 border rounded-md" placeholder="مثال: إشراف ماجستير">
-                </div>
-                <div>
-                    <label class="font-bold">المدة بالساعات:</label>
-                    <input type="number" id="custom-activity-duration" class="w-full p-2 border rounded-md" min="1" value="1">
-                </div>
-                 <div>
-                    <label class="font-bold">المكان (إختياري):</label>
-                    <select id="custom-activity-location" class="w-full p-2 border rounded-md">
-                        <option value="">(بدون مكان)</option>
-                    </select>
-                </div>
-                <button id="custom-activity-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ النشاط</button>
-                <button id="custom-activity-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2 hidden">حذف النشاط</button>
-            </div>
-        </div>
-    </div>
     
-    <!-- New Modal for Level-Specific Activities -->
-    <div id="level-activity-modal" class="modal">
-        <div class="modal-content">
-            <span id="close-level-activity-modal-btn" class="close-button">&times;</span>
-            <h3 id="level-activity-modal-title" class="text-lg font-bold mb-4">إضافة نشاط للجدول</h3>
-            <div class="space-y-4">
-                <div>
-                    <label class="font-bold text-sm text-gray-600">اسم النشاط</label>
-                    <input type="text" id="level-activity-name-input" class="w-full p-2 border rounded-md" placeholder="مشروع تخرج، سيمنار...">
+        <div id="drop-action-modal" class="modal">
+            <div class="modal-content">
+                <h3 class="text-lg font-bold mb-4">اختر الإجراء</h3>
+                <p class="mb-6">ماذا تريد أن تفعل بهذا المقرر؟</p>
+                <div class="flex justify-end gap-4">
+                    <button id="drop-action-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
+                    <button id="drop-action-insert-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">إدراج معًا</button>
+                    <button id="drop-action-swap-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">تبديل</button>
                 </div>
-                <div>
-                    <label class="font-bold text-sm text-gray-600">العضو المسؤول (اختياري)</label>
-                    <select id="level-activity-instructor-select" class="w-full p-2 border rounded-md"></select>
-                </div>
-                <div>
-                    <label class="font-bold text-sm text-gray-600">المكان</label>
-                    <select id="level-activity-location-select" class="w-full p-2 border rounded-md"></select>
-                </div>
-                <div>
-                    <label class="font-bold text-sm text-gray-600">المدة بالساعات</label>
-                    <input type="number" id="level-activity-duration-input" class="w-full p-2 border rounded-md" min="1" value="1">
-                </div>
-                 <div>
-                    <label class="font-bold text-sm text-gray-600">اللون</label>
-                    <input type="color" id="level-activity-color-input" class="w-full p-1 h-10 border rounded-md" value="#a7f3d0">
-                </div>
-                <button id="level-activity-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ النشاط</button>
             </div>
         </div>
+    
+        <div id="custom-activity-modal" class="modal">
+            <div class="modal-content">
+                <span id="close-custom-activity-modal-btn" class="close-button">&times;</span>
+                <h3 id="custom-activity-modal-title" class="text-lg font-bold mb-4">إضافة نشاط مخصص</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="font-bold">النشاط:</label>
+                        <input type="text" id="custom-activity-text" class="w-full p-2 border rounded-md" placeholder="مثال: إشراف ماجستير">
+                    </div>
+                    <div>
+                        <label class="font-bold">المدة بالساعات:</label>
+                        <input type="number" id="custom-activity-duration" class="w-full p-2 border rounded-md" min="1" value="1">
+                    </div>
+                     <div>
+                        <label class="font-bold">المكان (إختياري):</label>
+                        <select id="custom-activity-location" class="w-full p-2 border rounded-md">
+                            <option value="">(بدون مكان)</option>
+                        </select>
+                    </div>
+                    <button id="custom-activity-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ النشاط</button>
+                    <button id="custom-activity-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2 hidden">حذف النشاط</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- New Modal for Level-Specific Activities -->
+        <div id="level-activity-modal" class="modal">
+            <div class="modal-content">
+                <span id="close-level-activity-modal-btn" class="close-button">&times;</span>
+                <h3 id="level-activity-modal-title" class="text-lg font-bold mb-4">إضافة نشاط للجدول</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">اسم النشاط</label>
+                        <input type="text" id="level-activity-name-input" class="w-full p-2 border rounded-md" placeholder="مشروع تخرج، سيمنار...">
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">العضو المسؤول (اختياري)</label>
+                        <select id="level-activity-instructor-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">المكان</label>
+                        <select id="level-activity-location-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                    <div>
+                        <label class="font-bold text-sm text-gray-600">المدة بالساعات</label>
+                        <input type="number" id="level-activity-duration-input" class="w-full p-2 border rounded-md" min="1" value="1">
+                    </div>
+                     <div>
+                        <label class="font-bold text-sm text-gray-600">اللون</label>
+                        <input type="color" id="level-activity-color-input" class="w-full p-1 h-10 border rounded-md" value="#a7f3d0">
+                    </div>
+                    <button id="level-activity-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ النشاط</button>
+                </div>
+            </div>
+        </div>
+    
+    
+        <footer class="text-center p-4 mt-8 text-sm text-gray-500 border-t">
+            <p>جميع الحقوق محفوظة لدى قسم تكنولوجيا التعليم</p>
+            <p>أ.م.د/ نهى علي سيد عبد المحسن & أ/ طارق محمد مختار</p>
+            <p>2025-2026</p>
+        </footer>
     </div>
 
-
-    <footer class="text-center p-4 mt-8 text-sm text-gray-500 border-t">
-        <p>جميع الحقوق محفوظة لدى قسم تكنولوجيا التعليم</p>
-        <p>أ.م.د/ نهى علي سيد عبد المحسن & أ/ طارق محمد مختار</p>
-        <p>2025-2026</p>
-    </footer>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        let userRole = null; // 'admin' or 'guest'
+
+        const loginSection = document.getElementById('login-section');
+        const appSection = document.getElementById('app-section');
+
+        // --- LOGIN LOGIC ---
+        const loginForm = document.getElementById('loginForm');
+		const usernameWrapper = document.getElementById('username-wrapper');
+		const usernameInput = document.getElementById('usernameInput');
+		const passwordInput = document.getElementById('passwordInput');
+		const errorMessage = document.getElementById('error-message');
+		const guestLoginToggle = document.getElementById('guest-login-toggle');
+		const loginFormTitle = document.querySelector('.login-form-title');
+        let isGuestMode = false;
+
+        function showApp() {
+            loginSection.classList.add('hidden');
+            appSection.classList.remove('hidden');
+            if (userRole === 'guest') {
+                appSection.classList.add('read-only');
+            }
+            initializeMainApp(); 
+        }
+
+		guestLoginToggle.addEventListener('click', function(e) {
+			e.preventDefault();
+			isGuestMode = !isGuestMode;
+			usernameInput.value = '';
+			passwordInput.value = '';
+			errorMessage.textContent = '';
+
+			if (isGuestMode) {
+				usernameWrapper.classList.add('hidden');
+				passwordInput.placeholder = 'كلمة سر الضيف';
+				guestLoginToggle.textContent = 'تسجيل دخول المستخدم';
+				loginFormTitle.textContent = 'دخول الضيف';
+			} else {
+				usernameWrapper.classList.remove('hidden');
+				passwordInput.placeholder = 'كلمة المرور';
+				guestLoginToggle.textContent = 'دخول كضيف';
+				loginFormTitle.textContent = 'تسجيل الدخول';
+			}
+		});
+
+        loginForm.addEventListener('submit', function(e) {
+			e.preventDefault();
+			const enteredPassword = passwordInput.value;
+			let isLoginSuccessful = false;
+
+			if (isGuestMode) {
+				if (enteredPassword === '2392') {
+                    userRole = 'guest';
+					isLoginSuccessful = true;
+				} else {
+					errorMessage.textContent = 'كلمة سر الضيف غير صحيحة.';
+				}
+			} else {
+				const enteredUsername = usernameInput.value;
+				if (enteredUsername.toLowerCase() === 'tarek' && enteredPassword === 'BossX@786') {
+                    userRole = 'admin';
+					isLoginSuccessful = true;
+				} else {
+					errorMessage.textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة.';
+				}
+			}
+
+			if (isLoginSuccessful) {
+				errorMessage.textContent = '';
+                showApp();
+			} else {
+				const wrapLogin = document.querySelector('.wrap-login');
+				wrapLogin.style.animation = 'shake 0.5s';
+				setTimeout(() => {
+					wrapLogin.style.animation = '';
+				}, 500);
+			}
+		});
+        
+        // --- MAIN APP LOGIC ---
         let subjects = [], instructors = [], locations = [], courses = [], levels = [], groups = [];
         let courseColors = {}, scheduleGrid = {};
         let savedSchedules = {};
@@ -529,7 +822,7 @@
         let subjectsCol, instructorsCol, locationsCol, coursesCol, levelsCol, schedulesCol, groupsCol, settingsCol;
         let draggedItem = null;
 
-        async function initializeFirebase() {
+        async function initializeMainApp() {
             try {
                 const firebaseConfig = {
                   apiKey: "AIzaSyANHjKyZJgEOAddxMSQR1JPjzXLWGqaNdM",
@@ -570,6 +863,7 @@
                 console.error("Firebase Initialization Error:", error);
                 dom.loadingIndicator.innerHTML = '<p class="text-red-500">حدث خطأ فني أثناء تهيئة التطبيق.</p>';
             }
+            setupEventListeners();
         }
         
         function showToast(message, type = 'success') {
@@ -665,6 +959,7 @@
         }
 
         window.deleteItem = async (type, id) => {
+            if (userRole === 'guest') return;
             const itemMap = { level: {data: levels, col: levelsCol}, group: {data: groups, col: groupsCol}, subject: {data: subjects, col: subjectsCol}, instructor: {data: instructors, col: instructorsCol}, location: {data: locations, col: locationsCol}, course: {data: courses, col: coursesCol} };
             const itemToDelete = itemMap[type].data.find(i => i.id === id);
             if(!itemToDelete) return;
@@ -746,7 +1041,7 @@
 
         async function setupRealtimeListeners() {
             let loadedCollections = 0;
-            const totalCollections = 8; // Increased to 8 for settings
+            const totalCollections = 8; 
             const onCollectionLoaded = () => {
                 loadedCollections++;
                 if (loadedCollections >= totalCollections) {
@@ -764,7 +1059,7 @@
                 onCollectionLoaded();
             }, (error) => {
                 console.error("Error fetching settings:", error);
-                onCollectionLoaded(); // Still count as loaded to not block UI
+                onCollectionLoaded(); 
             });
 
             onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error);
@@ -792,6 +1087,7 @@
         window.showMainView = showMainView;
 
         window.showAdvancedLevelsView = () => {
+            if (userRole === 'guest') return;
             dom.mainContent.classList.add('hidden');
             dom.advancedInstructorsView.classList.add('hidden');
             dom.advancedLevelsView.classList.remove('hidden');
@@ -807,144 +1103,192 @@
         }
         
         window.showAdvancedInstructorsView = () => {
+            if (userRole === 'guest') return;
             dom.mainContent.classList.add('hidden');
             dom.advancedLevelsView.classList.add('hidden');
             dom.advancedInstructorsView.classList.remove('hidden');
             renderAdvancedInstructorsView();
         }
 
-        document.addEventListener('DOMContentLoaded', initializeFirebase);
-        dom.levelForm.addEventListener('submit', handleAddLevel);
-        dom.groupForm.addEventListener('submit', handleAddGroup);
-        dom.subjectForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const name = dom.subjectForm.querySelector('#subject-name').value.trim();
-            const academicLevel = dom.subjectLevelSelect.value;
-            if (name && academicLevel && !subjects.some(s => s.name === name)) {
-                await handleAddWithLoading(e, subjectsCol, { name, academicLevel, sectionCounter: 0 }, "تمت إضافة المادة بنجاح!");
-                dom.subjectForm.querySelector('#subject-name').value = '';
-            } else {
-                showToast('يرجى اختيار فرقة وإدخال اسم مادة غير مكرر.', 'error');
-            }
-        });
-        dom.instructorForm.addEventListener('submit', (e) => {
-            const nameInput = document.getElementById('instructor-name-input');
-            const name = nameInput.value.trim();
-            if (name && !instructors.some(i => i.name === name)) {
-                const data = { name, category: document.getElementById('instructor-category-select').value, availableTimes: {}, customActivities: {} };
-                handleAddWithLoading(e, instructorsCol, data, "تمت إضافة العضو بنجاح!");
-            }
-        });
-        dom.locationForm.addEventListener('submit', (e) => {
-            const nameInput = document.getElementById('location-name');
-            const data = { name: nameInput.value, type: document.getElementById('location-type').value };
-            handleAddWithLoading(e, locationsCol, data, "تمت إضافة المكان بنجاح!");
-        });
-        dom.courseForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const button = e.target.querySelector('button[type="submit"]');
-            toggleButtonLoading(button, true);
+        function setupEventListeners() {
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                location.reload();
+            });
 
-            const subjectName = dom.courseNameSelect.value;
-            const instructorName = dom.instructorSelect.value;
-            const sessionType = dom.sessionType.value;
-            const groupName = dom.courseGroupSelect.value;
-
-            if (!subjectName || !instructorName) { 
-                showToast("الرجاء اختيار المادة والعضو.", "error");
-                toggleButtonLoading(button, false);
-                return; 
+            if (userRole === 'admin') {
+                dom.levelForm.addEventListener('submit', handleAddLevel);
+                dom.groupForm.addEventListener('submit', handleAddGroup);
+                dom.subjectForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const name = dom.subjectForm.querySelector('#subject-name').value.trim();
+                    const academicLevel = dom.subjectLevelSelect.value;
+                    if (name && academicLevel && !subjects.some(s => s.name === name)) {
+                        await handleAddWithLoading(e, subjectsCol, { name, academicLevel, sectionCounter: 0 }, "تمت إضافة المادة بنجاح!");
+                        dom.subjectForm.querySelector('#subject-name').value = '';
+                    } else {
+                        showToast('يرجى اختيار فرقة وإدخال اسم مادة غير مكرر.', 'error');
+                    }
+                });
+                dom.instructorForm.addEventListener('submit', (e) => {
+                    const nameInput = document.getElementById('instructor-name-input');
+                    const name = nameInput.value.trim();
+                    if (name && !instructors.some(i => i.name === name)) {
+                        const data = { name, category: document.getElementById('instructor-category-select').value, availableTimes: {}, customActivities: {} };
+                        handleAddWithLoading(e, instructorsCol, data, "تمت إضافة العضو بنجاح!");
+                    }
+                });
+                dom.locationForm.addEventListener('submit', (e) => {
+                    const nameInput = document.getElementById('location-name');
+                    const data = { name: nameInput.value, type: document.getElementById('location-type').value };
+                    handleAddWithLoading(e, locationsCol, data, "تمت إضافة المكان بنجاح!");
+                });
+                dom.courseForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const button = e.target.querySelector('button[type="submit"]');
+                    toggleButtonLoading(button, true);
+        
+                    const subjectName = dom.courseNameSelect.value;
+                    const instructorName = dom.instructorSelect.value;
+                    const sessionType = dom.sessionType.value;
+                    const groupName = dom.courseGroupSelect.value;
+        
+                    if (!subjectName || !instructorName) { 
+                        showToast("الرجاء اختيار المادة والعضو.", "error");
+                        toggleButtonLoading(button, false);
+                        return; 
+                    }
+                    
+                    try {
+                        const subject = subjects.find(s => s.name === subjectName);
+                        const sectionsCount = parseInt(document.getElementById('sections-count').value);
+                        
+                        for (let i = 0; i < sectionsCount; i++) {
+                            const courseData = {
+                                baseName: subject.name,
+                                name: (sessionType === 'lab') ? `${subject.name} - سكشن ${subject.sectionCounter + i + 1}` : subject.name,
+                                instructor: instructorName,
+                                type: sessionType,
+                                requiredLocationType: document.getElementById('location-type-select').value,
+                                duration: parseInt(document.getElementById('duration').value),
+                                groupName: sessionType === 'lecture' ? (groupName || null) : null
+                            };
+                            await addDoc(coursesCol, courseData);
+                        }
+                        if (sessionType === 'lab') {
+                            const subjectDocRef = doc(db, subjectsCol.path, subject.id);
+                            await updateDoc(subjectDocRef, { sectionCounter: subject.sectionCounter + sectionsCount });
+                        }
+                        showToast("تمت إضافة المقرر بنجاح!");
+                    } catch (error) {
+                        console.error("Error adding course: ", error);
+                        showToast("حدث خطأ أثناء إضافة المقرر.", "error");
+                    } finally {
+                        toggleButtonLoading(button, false);
+                    }
+                });
+                dom.generateBtn.addEventListener('click', generateSchedule);
+                dom.exportBtn.addEventListener('click', handleExportToFile);
+                dom.loadBtn.addEventListener('click', () => dom.fileLoader.click());
+                dom.fileLoader.addEventListener('change', handleLoadScheduleFromFile);
+                dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل البيانات؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
             }
+
+            dom.locationsViewBtn.addEventListener('click', displayLocationSchedules);
+            dom.filterMembersBtn.addEventListener('click', () => displayMemberSchedules());
+            dom.hideCustomViewBtn.addEventListener('click', showMainView);
+            dom.refreshCustomViewBtn.addEventListener('click', () => {
+                if(activeCustomView === 'members') displayMemberSchedules();
+                if(activeCustomView === 'locations') displayLocationSchedules();
+                showToast("تم تحديث البيانات!");
+            });
+            document.getElementById('refresh-btn').addEventListener('click', () => location.reload());
+            dom.printBtn.addEventListener('click', () => window.print());
+            dom.levelFilterSelect.addEventListener('change', handleLevelFilterChange);
+            dom.showConflictsBtn.addEventListener('click', () => {
+                showConflicts = true;
+                detectAndDisplayConflicts();
+            });
             
-            try {
-                const subject = subjects.find(s => s.name === subjectName);
-                const sectionsCount = parseInt(document.getElementById('sections-count').value);
-                
-                for (let i = 0; i < sectionsCount; i++) {
-                    const courseData = {
-                        baseName: subject.name,
-                        name: (sessionType === 'lab') ? `${subject.name} - سكشن ${subject.sectionCounter + i + 1}` : subject.name,
-                        instructor: instructorName,
-                        type: sessionType,
-                        requiredLocationType: document.getElementById('location-type-select').value,
-                        duration: parseInt(document.getElementById('duration').value),
-                        groupName: sessionType === 'lecture' ? (groupName || null) : null
-                    };
-                    await addDoc(coursesCol, courseData);
+            [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.dropActionModal.cancelBtn].forEach(btn => {
+                if(btn) btn.onclick = () => btn.closest('.modal').style.display = "none";
+            });
+            window.onclick = (event) => { 
+                if (event.target.classList.contains('modal')) {
+                    event.target.style.display = "none";
                 }
-                if (sessionType === 'lab') {
-                    const subjectDocRef = doc(db, subjectsCol.path, subject.id);
-                    await updateDoc(subjectDocRef, { sectionCounter: subject.sectionCounter + sectionsCount });
-                }
-                showToast("تمت إضافة المقرر بنجاح!");
-            } catch (error) {
-                console.error("Error adding course: ", error);
-                showToast("حدث خطأ أثناء إضافة المقرر.", "error");
-            } finally {
-                toggleButtonLoading(button, false);
+            };
+            
+            if (userRole === 'admin') {
+                dom.dropActionModal.swapBtn.addEventListener('click', handleSwapAction);
+                dom.dropActionModal.insertBtn.addEventListener('click', handleInsertTogetherAction);
+                dom.sessionType.addEventListener('change', (e) => {
+                    const groupSelectContainer = document.getElementById('group-select-container');
+                    groupSelectContainer.style.display = e.target.value === 'lecture' ? 'block' : 'none';
+                });
             }
-        });
-
-        dom.generateBtn.addEventListener('click', generateSchedule);
-        dom.locationsViewBtn.addEventListener('click', displayLocationSchedules);
-        dom.filterMembersBtn.addEventListener('click', () => displayMemberSchedules());
-        dom.hideCustomViewBtn.addEventListener('click', showMainView);
-        dom.refreshCustomViewBtn.addEventListener('click', () => {
-            if(activeCustomView === 'members') displayMemberSchedules();
-            if(activeCustomView === 'locations') displayLocationSchedules();
-            showToast("تم تحديث البيانات!");
-        });
-        dom.exportBtn.addEventListener('click', handleExportToFile);
-        dom.loadBtn.addEventListener('click', () => dom.fileLoader.click());
-        dom.fileLoader.addEventListener('change', handleLoadScheduleFromFile);
-        document.getElementById('refresh-btn').addEventListener('click', () => location.reload());
-        dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل البيانات؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
-        dom.printBtn.addEventListener('click', () => window.print());
-        dom.levelFilterSelect.addEventListener('change', handleLevelFilterChange);
-        dom.showConflictsBtn.addEventListener('click', () => {
-            showConflicts = true;
-            detectAndDisplayConflicts();
-        });
+        }
         
-        [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.dropActionModal.cancelBtn].forEach(btn => {
-            if(btn) btn.onclick = () => btn.closest('.modal').style.display = "none";
-        });
-        window.onclick = (event) => { 
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = "none";
-            }
-        };
-
-        dom.sessionType.addEventListener('change', (e) => {
-            const groupSelectContainer = document.getElementById('group-select-container');
-            if (e.target.value === 'lecture') {
-                groupSelectContainer.style.display = 'block';
-            } else {
-                groupSelectContainer.style.display = 'none';
-            }
-        });
-        
-        function createControlButtons(type, id) { return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; }
+        function createControlButtons(type, id) { 
+            if (userRole === 'guest') return '';
+            return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; 
+        }
         function renderSubjects() {
+            let deleteButtonHtml = '';
+            if (userRole === 'admin') {
+                deleteButtonHtml = `<button onclick="window.deleteItem('course', '\${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>`;
+            }
             dom.subjectsList.innerHTML = subjects.map(s => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-r-4" data-id="${s.id}" style="border-color: ${s.color || '#cccccc'}"><div class="flex items-center gap-3"><input type="color" value="${s.color || generateHslColor(s.name, true)}" onchange="window.handleSubjectColorChange('${s.id}', this.value)" style="width: 32px; height: 32px;"><div><p class="font-semibold text-sm">${s.name}</p><p class="text-xs text-gray-500">${s.academicLevel}</p></div></div>${createControlButtons('subject', s.id)}</div>`).join('');
         }
         function renderInstructors() { let html = ''; INSTRUCTOR_CATEGORIES.forEach(category => { const members = instructors.filter(i => i.category === category); if (members.length > 0) { html += `<h4 class="text-sm font-bold text-gray-500 mt-3">${category}</h4>`; html += members.map(i => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${i.id}"><p class="font-semibold text-sm">${i.name}</p>${createControlButtons('instructor', i.id)}</div>`).join(''); } }); dom.instructorsList.innerHTML = html; }
         function renderLocations() { dom.locationsList.innerHTML = locations.map(l => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${l.id}"><p class="font-semibold text-sm">${l.name} (${l.type})</p>${createControlButtons('location', l.id)}</div>`).join(''); }
-        function renderCourses() {
+        function renderCourses(filterType = 'all') {
             const selectedLevel = dom.levelFilterSelect.value;
-            const coursesToDisplay = selectedLevel === 'all' ? courses : courses.filter(c => subjects.some(s => s.name === c.baseName && s.academicLevel === selectedLevel));
+            let coursesToDisplay = selectedLevel === 'all' ? courses : courses.filter(c => subjects.some(s => s.name === c.baseName && s.academicLevel === selectedLevel));
 
-            const lectures = coursesToDisplay.filter(c => c.type === 'lecture');
-            const labs = coursesToDisplay.filter(c => c.type === 'lab');
-
-            const renderList = (courseArray) => {
-                 return courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div><button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
+            if (filterType !== 'all') {
+                coursesToDisplay = coursesToDisplay.filter(c => c.type === filterType);
             }
 
-            dom.courseLists.all.innerHTML = renderList(coursesToDisplay);
-            dom.courseLists.lectures.innerHTML = renderList(lectures);
-            dom.courseLists.labs.innerHTML = renderList(labs);
+            const renderList = (courseArray, targetElement) => {
+                 targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
+            }
+
+            renderList(coursesToDisplay.filter(c => c.type === 'lecture'), dom.courseLists.lectures);
+            renderList(coursesToDisplay.filter(c => c.type === 'lab'), dom.courseLists.labs);
+            renderList(coursesToDisplay, dom.courseLists.all);
         }
+
+        function setupCourseFilters() {
+            const buttons = dom.filterBtns;
+            const lists = dom.courseLists;
+
+            const updateActiveState = (activeBtn) => {
+                for (const key in buttons) {
+                    buttons[key].classList.remove('border-sky-500', 'text-sky-600');
+                    buttons[key].classList.add('text-gray-500');
+                    lists[key].classList.add('hidden');
+                }
+                activeBtn.classList.add('border-sky-500', 'text-sky-600');
+                activeBtn.classList.remove('text-gray-500');
+            };
+
+            buttons.all.addEventListener('click', () => {
+                updateActiveState(buttons.all);
+                lists.all.classList.remove('hidden');
+                renderCourses('all');
+            });
+            buttons.lectures.addEventListener('click', () => {
+                updateActiveState(buttons.lectures);
+                lists.lectures.classList.remove('hidden');
+                renderCourses('lecture');
+            });
+            buttons.labs.addEventListener('click', () => {
+                updateActiveState(buttons.labs);
+                lists.labs.classList.remove('hidden');
+                renderCourses('lab');
+            });
+        }
+        
         function renderSummaryTable() {
             const selectedLevel = dom.levelFilterSelect.value;
             const container = dom.summaryTableContainer;
@@ -994,7 +1338,7 @@
             dom.instructorSelect.innerHTML = html;
         }
         function handleLevelFilterChange() {
-            renderCourses(); 
+            renderCourses('all'); 
             updateCourseSelector(); 
             updateInstructorSelector(); 
             renderSummaryTable();
@@ -1005,6 +1349,7 @@
         }
 
         function openLocationEditModal(id) {
+            if (userRole === 'guest') return;
             const location = locations.find(l => l.id === id);
             if (!location) return;
             const modal = dom.locationEditModal;
@@ -1019,6 +1364,7 @@
         }
 
         window.openEditModal = (type, id) => {
+            if (userRole === 'guest') return;
             if (type === 'location') {
                 return openLocationEditModal(id);
             }
@@ -1029,10 +1375,13 @@
             dom.editModal.style.display = "block";
             dom.editModalSaveBtn.onclick = () => handleUpdateItem(type, id, dom.editModalInput.value.trim());
         };
-        window.handleSubjectColorChange = async (id, color) => { const subjectRef = doc(db, subjectsCol.path, id); await updateDoc(subjectRef, { color: color }); };
+        window.handleSubjectColorChange = async (id, color) => { 
+            if (userRole === 'guest') return;
+            const subjectRef = doc(db, subjectsCol.path, id); await updateDoc(subjectRef, { color: color }); 
+        };
         
         async function handleUpdateItem(type, id, newName, options = {}) {
-            if (!newName) return;
+            if (userRole === 'guest' || !newName) return;
             const collectionInfo = { level: {col: levelsCol }, group: {col: groupsCol}, subject: {col: subjectsCol }, instructor: {col: instructorsCol }, location: {col: locationsCol } }[type];
             const item = { level: levels, group: groups, subject: subjects, instructor: instructors, location: locations }[type].find(i => i.id === id);
             const oldName = item.name;
@@ -1045,6 +1394,9 @@
             const batch = writeBatch(db);
             
             let updates = { name: newName };
+             if (type === 'level') {
+                 updates = { ...updates, ...options };
+             }
 
             if (type === 'level') { 
                 subjects.forEach(s => { if(s.academicLevel === oldName) batch.update(doc(db, subjectsCol.path, s.id), { academicLevel: newName }); }); 
@@ -1091,6 +1443,7 @@
             showToast("تم التعديل بنجاح!");
         }
         window.openAvailabilityModal = (id) => {
+            if (userRole === 'guest') return;
             const instructor = instructors.find(i => i.id === id); if(!instructor) return;
             dom.availabilityModalTitle.textContent = `تحديد أوقات التفرغ لـ ${instructor.name}`; let gridHtml = '';
             DAYS.forEach(day => { gridHtml += `<div class="grid grid-cols-6 gap-2 items-center"><label class="font-bold col-span-1">${day}</label><div class="col-span-5 flex flex-wrap gap-1">`; TIME_SLOTS_HOURLY.forEach(time => { const isChecked = ((instructor.availableTimes || {})[day] || []).includes(time); gridHtml += `<label class="flex items-center space-x-1 p-1 border rounded-md"><input type="checkbox" data-day="${day}" data-time="${time}" ${isChecked ? 'checked' : ''} class="form-checkbox h-4 w-4"><span class="text-xs">${formatTimeSlot(time)}</span></label>`; }); gridHtml += `</div></div>`; });
@@ -1099,6 +1452,7 @@
             dom.availabilityModalSaveBtn.onclick = () => handleSaveAvailability(id);
         };
         async function handleSaveAvailability(id) {
+            if (userRole === 'guest') return;
             const instructorRef = doc(db, instructorsCol.path, id); const newAvailableTimes = {};
             const checkboxes = dom.availabilityGrid.querySelectorAll('input[type="checkbox"]:checked');
             checkboxes.forEach(cb => { const day = cb.dataset.day; const time = parseInt(cb.dataset.time); if (!newAvailableTimes[day]) newAvailableTimes[day] = []; newAvailableTimes[day].push(time); });
@@ -1111,6 +1465,7 @@
             return locations.filter(loc => { if (loc.type !== requiredType) return false; let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; });
         }
         window.openScheduleItemModal = (courseId, day, time, locationName, levelOverride = null) => {
+            if (userRole === 'guest') return;
             const courseDataFromGrid = savedSchedules[levelOverride || dom.levelFilterSelect.value]?.[day]?.[time]?.[locationName];
             if (!courseDataFromGrid) return;
 
@@ -1292,6 +1647,7 @@
 
 
         window.openCustomActivityModal = (instructorId, day, time, activityId = null) => {
+            if (userRole === 'guest') return;
             const instructor = instructors.find(i => i.id === instructorId);
             if (!instructor) return;
 
@@ -1415,6 +1771,26 @@
         }
         function canPlaceCourse(course, day, time, locName, instructorSchedule, lectureBlockedTimes) {
             const instructor = instructors.find(i => i.name === course.instructor);
+            const courseLevelName = subjects.find(s => s.name === course.baseName)?.academicLevel;
+            const courseLevel = levels.find(l => l.name === courseLevelName);
+            
+            if (course.type === 'lab' && courseLevel && courseLevel.maxConcurrentSections) {
+                let currentConcurrentSections = 0;
+                for (const locationName in scheduleGrid[day]?.[time] || {}) {
+                    const existingCourse = scheduleGrid[day][time][locationName];
+                    if (existingCourse && existingCourse.type === 'lab') {
+                        const existingCourseLevel = subjects.find(s => s.name === existingCourse.baseName)?.academicLevel;
+                        if (existingCourseLevel === courseLevelName) {
+                            currentConcurrentSections++;
+                        }
+                    }
+                }
+                if (currentConcurrentSections >= courseLevel.maxConcurrentSections) {
+                    return false;
+                }
+            }
+
+
             if (instructor?.availableTimes?.[day]?.length > 0) { for (let i = 0; i < course.duration; i++) { if (!instructor.availableTimes[day].includes(time + i)) return false; } }
             for (let i = 0; i < course.duration; i++) { 
                 const currentTime = time + i; 
@@ -1432,6 +1808,7 @@
         }
         
         async function allowConflict(conflictId) {
+            if (userRole === 'guest') return;
             ignoredConflicts.add(conflictId);
             const settingsDocRef = doc(settingsCol, 'app_config');
             try {
@@ -1525,6 +1902,7 @@
             
             conflicts.forEach(conflict => {
                 const { reason, suggestion, itemA, itemB, conflictId } = conflict;
+                const allowButton = userRole === 'admin' ? `<button onclick="window.allowConflict('${conflictId}')" class="bg-green-200 text-green-800 font-bold py-1 px-3 rounded-lg hover:bg-green-300 text-sm whitespace-nowrap">سماح</button>` : '';
                 html += `<li class="border-t border-red-200 pt-2">
                     <div class="flex justify-between items-start">
                         <div>
@@ -1534,7 +1912,7 @@
                                 <li>"${itemB.name}" (${itemB.level}) في "${itemB.location}"</li>
                             </ul>
                         </div>
-                        <button onclick="window.allowConflict('${conflictId}')" class="bg-green-200 text-green-800 font-bold py-1 px-3 rounded-lg hover:bg-green-300 text-sm whitespace-nowrap">سماح</button>
+                        ${allowButton}
                     </div>
                     ${suggestion ? `<p class="text-sm text-green-800 bg-green-100 p-2 rounded-md mt-2"><i class="fas fa-lightbulb mr-1"></i> <strong>حل مقترح:</strong> ${suggestion}</p>` : ''}
                 </li>`;
@@ -1565,6 +1943,11 @@
                         if (a.data.type !== 'lecture' && b.data.type === 'lecture') return 1;
                         return 0;
                     });
+                    
+                    const canEdit = userRole === 'admin';
+                    const editClickHandler = (cellData, locName) => canEdit ? `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${locName}', '${level}')` : '';
+                    const addActivityClickHandler = canEdit ? `window.openLevelActivityModal('${day}', ${time})` : '';
+                    const draggableAttr = canEdit ? 'draggable="true"' : '';
 
                     if (itemsInCell.length > 0) {
                         const duration = itemsInCell[0].data.duration || 1; 
@@ -1576,12 +1959,12 @@
                             const sessionClass = cellData.type === 'lab' ? 'session-lab' : '';
                             if (cellData.type === 'custom_activity') {
                                 const bgColor = cellData.color || '#e5e7eb';
-                                const editClickHandler = `window.openLevelActivityModal('${day}', ${time}, '${locName}', '${cellData.id}')`;
-                                tableHtml += `<div class="schedule-item text-[11px]" onclick="${editClickHandler}" style="background-color: ${bgColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`;
+                                const clickHandler = canEdit ? `window.openLevelActivityModal('${day}', ${time}, '${locName}', '${cellData.id}')` : '';
+                                tableHtml += `<div class="schedule-item text-[11px]" onclick="${clickHandler}" style="background-color: ${bgColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`;
                             } else {
                                 const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; 
                                 const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); 
-                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" draggable="true" data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${locName}', '${level}')" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
+                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" ${draggableAttr} data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="${editClickHandler(cellData, locName)}" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
                             }
                         });
                         tableHtml += `</div></td>`;
@@ -1589,7 +1972,7 @@
                     } else { 
                         const isContinuationSlot = locations.some(loc => scheduleGrid[day]?.[time]?.[loc.name]?.isContinuation); 
                         if (!isContinuationSlot) { 
-                            tableHtml += `<td class="p-0 border border-gray-300 align-top empty-slot hover:bg-green-50" onclick="window.openLevelActivityModal('${day}', ${time})"><div class="drop-target h-full" data-day="${day}" data-time="${time}"></div></td>`; 
+                            tableHtml += `<td class="p-0 border border-gray-300 align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="drop-target h-full" data-day="${day}" data-time="${time}"></div></td>`; 
                         } 
                         time_cursor++; 
                     }
@@ -1598,7 +1981,9 @@
             });
             tableHtml += '</tbody></table></div>';
             targetElement.innerHTML = tableHtml;
-            addDragAndDropListeners(isCustomView ? '#custom-schedule-output' : '#schedule-output');
+            if (userRole === 'admin') {
+                addDragAndDropListeners(isCustomView ? '#custom-schedule-output' : '#schedule-output');
+            }
         }
         function displayUnscheduled(unscheduled) { dom.unscheduledOutput.innerHTML = unscheduled.length ? `<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md" role="alert"><p class="font-bold text-lg">مواد لم يتم تسكينها:</p><ul class="list-disc list-inside">${unscheduled.map(c => `<li>${c.name} (${c.instructor})</li>`).join('')}</ul></div>` : ''; }
         function displayLocationSchedules() {
@@ -1667,7 +2052,7 @@
                                 type: 'custom',
                                 name: activity.text,
                                 instructor: instructor.name,
-                                level: 'نشاط شخصي',
+                                level: ' ',
                                 ...activity
                             });
                         }
@@ -1762,7 +2147,7 @@
                                 instructorGrid[activity.day][activity.time].push({ type: 'custom', ...activity });
                             }
                         }
-                        
+                        const canEdit = userRole === 'admin';
                         allHtml += `<div class="mb-10 bg-white p-4 sm:p-6 rounded-xl shadow-lg"> <h4 class="text-xl font-bold text-center mb-4 text-sky-600">${instructor.name}</h4> <div class="table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h5 class="font-bold text-center text-md mb-2 text-gray-700">الجدول التفصيلي</h5> <table class="w-full text-sm text-center border-collapse"> <thead><tr class="bg-gray-100"> <th class="p-2 border">اليوم</th> ${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono">${formatTimeSlot(t)}</th>`).join('')} </tr></thead><tbody>`;
                         DAYS.forEach(day => {
                             allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`; 
@@ -1771,16 +2156,22 @@
                                 const time = TIME_SLOTS_HOURLY[time_cursor];
                                 const apps = instructorGrid[day][time].filter(app => !app.isContinuation);
                                 
+                                const addActivityBtn = canEdit ? `<div class="add-concurrent-btn" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"><i class="fas fa-plus"></i></div>` : '';
+                                const emptySlotClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"` : '';
+                                
                                 if (apps.length > 0) {
                                     const maxDuration = Math.max(...apps.map(app => app.duration || 1));
                                     allHtml += `<td class="p-1 border align-top occupied-slot" colspan="${maxDuration}" style="position: relative;">`;
-                                    allHtml += `<div class="add-concurrent-btn" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"><i class="fas fa-plus"></i></div>`;
+                                    allHtml += addActivityBtn;
                                     allHtml += '<div class="flex flex-col gap-1">';
                                     apps.forEach(app => {
                                         const bgColor = app.color || courseColors[app.baseName] || (app.type === 'custom' ? '#e5e7eb' : '#f3f4f6');
                                         let contentHtml = '';
-                                        if (app.type === 'course') { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')" style="background-color: ${bgColor};"><p class="font-bold">${app.name}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
-                                        else { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.id}')" style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; }
+                                        const scheduleItemClick = canEdit ? `onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')"` : '';
+                                        const customActivityClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.id}')"` : '';
+
+                                        if (app.type === 'course') { contentHtml = `<div class="schedule-item text-[9px]" ${scheduleItemClick} style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
+                                        else { contentHtml = `<div class="schedule-item text-[9px]" ${customActivityClick} style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; }
                                         allHtml += contentHtml;
                                     });
                                     allHtml += `</div></td>`;
@@ -1796,7 +2187,7 @@
                                     }
                                     time_cursor += maxDuration;
                                 } else {
-                                    allHtml += `<td class="p-2 border empty-slot" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"></td>`;
+                                    allHtml += `<td class="p-2 border empty-slot" ${emptySlotClick}></td>`;
                                     time_cursor++;
                                 }
                             }
@@ -1900,10 +2291,11 @@
 
         function addDragAndDropListeners(containerSelector) { document.querySelectorAll(`${containerSelector} .schedule-item[draggable="true"]`).forEach(item => item.addEventListener('dragstart', handleDragStart)); document.querySelectorAll(`${containerSelector} .drop-target`).forEach(target => { target.addEventListener('dragover', e => e.preventDefault()); target.addEventListener('dragenter', e => e.target.closest('.drop-target')?.classList.add('drag-over')); target.addEventListener('dragleave', e => e.target.closest('.drop-target')?.classList.remove('drag-over')); target.addEventListener('drop', handleDrop); }); }
         function handleDragStart(e) { draggedItem = e.target.closest('.schedule-item'); setTimeout(() => { if(draggedItem) draggedItem.style.opacity = '0.5'; }, 0); }
+        
         async function handleDrop(e) {
-            e.preventDefault(); 
+            e.preventDefault();
             if (!draggedItem) return;
-            
+
             const targetCell = e.target.closest('.drop-target');
             draggedItem.style.opacity = '1';
 
@@ -1913,63 +2305,74 @@
             }
             targetCell.classList.remove('drag-over');
 
-            const sourceInfo = { 
-                id: draggedItem.dataset.courseId, 
-                day: draggedItem.dataset.day, 
-                time: parseInt(draggedItem.dataset.time), 
-                location: draggedItem.dataset.location 
+            const sourceInfo = {
+                id: draggedItem.dataset.courseId,
+                day: draggedItem.dataset.day,
+                time: parseInt(draggedItem.dataset.time),
+                location: draggedItem.dataset.location
             };
-            
-            const selectedLevel = dom.levelFilterSelect.value;
-            let tempGrid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-            const sourceCourse = tempGrid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-
-            if (!sourceCourse) {
-                showToast("خطأ: لم يتم العثور على بيانات المقرر المصدر.", "error");
-                draggedItem = null;
-                return;
-            }
 
             const targetDay = targetCell.dataset.day;
             const targetTime = parseInt(targetCell.dataset.time);
-            
             const targetItemElement = e.target.closest('.schedule-item');
             
-            // CASE 1: SWAP
+            // Case 1: Drop onto another item
             if (targetItemElement && targetItemElement !== draggedItem) {
-                const targetInfo = {
+                 const targetInfo = {
                     id: targetItemElement.dataset.courseId,
                     day: targetItemElement.dataset.day,
                     time: parseInt(targetItemElement.dataset.time),
                     location: targetItemElement.dataset.location
                 };
-                const targetCourse = tempGrid[targetInfo.day]?.[targetInfo.time]?.[targetInfo.location];
+                
+                dropContext = { sourceInfo, targetInfo };
 
-                if (!targetCourse) { draggedItem = null; return; }
-                if (sourceCourse.duration !== targetCourse.duration) {
-                    showToast("لا يمكن التبديل بين مقررين بمدة مختلفة.", "error");
+                const selectedLevel = dom.levelFilterSelect.value;
+                const grid = savedSchedules[selectedLevel];
+                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+                if(sourceCourse) {
+                    const availableSlot = findEmptySlotAtTime(targetDay, targetTime, sourceCourse, grid);
+                    dom.dropActionModal.insertBtn.disabled = !availableSlot;
+                } else {
+                     dom.dropActionModal.insertBtn.disabled = true;
+                }
+
+                dom.dropActionModal.modal.style.display = 'block';
+
+            } 
+            // Case 2: Drop into an empty slot (move)
+            else {
+                const selectedLevel = dom.levelFilterSelect.value;
+                let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
+                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+
+                if (!sourceCourse) {
+                    showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
                     draggedItem = null;
                     return;
                 }
+                
+                let targetLocation = null;
+                const cellIndex = targetCell.parentElement.cellIndex -1; 
+                
+                let currentCol = 0;
+                for(let i=0; i < TIME_SLOTS_HOURLY.length; i++){
+                    const time = TIME_SLOTS_HOURLY[i];
+                     let itemsInCell = locations.map(loc => grid[targetDay]?.[time]?.[loc.name]).filter(Boolean);
+                     const maxDuration = itemsInCell.length > 0 ? Math.max(...itemsInCell.map(c => c.duration || 1)) : 1;
+                     if(currentCol === cellIndex){
+                        targetLocation = sourceCourse.location;
+                        break;
+                     }
+                     currentCol += maxDuration;
+                     i += (maxDuration -1);
+                }
+                if(!targetLocation) targetLocation = sourceInfo.location;
 
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    delete tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                    delete tempGrid[targetInfo.day][targetInfo.time + i][targetInfo.location];
-                }
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    tempGrid[targetInfo.day][targetInfo.time + i][targetInfo.location] = { ...sourceCourse, isContinuation: i > 0 };
-                    tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = { ...targetCourse, isContinuation: i > 0 };
-                }
-                showToast("تم تبديل المقررين بنجاح!");
-            } 
-            // CASE 2: MOVE
-            else {
-                const targetLocation = sourceInfo.location; // Keep same location column
-                if (targetDay === sourceInfo.day && targetTime === sourceInfo.time) { draggedItem = null; return; }
 
                 let canPlace = true;
                 for (let i = 0; i < sourceCourse.duration; i++) {
-                    if (tempGrid[targetDay]?.[targetTime + i]?.[targetLocation]) {
+                    if (grid[targetDay]?.[targetTime + i]?.[targetLocation]) {
                         canPlace = false;
                         break;
                     }
@@ -1977,25 +2380,113 @@
 
                 if (canPlace) {
                     for (let i = 0; i < sourceCourse.duration; i++) {
-                        delete tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                        delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
                     }
                     for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (!tempGrid[targetDay]) tempGrid[targetDay] = {};
-                        if (!tempGrid[targetDay][targetTime + i]) tempGrid[targetDay][targetTime + i] = {};
-                        tempGrid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
+                        if (!grid[targetDay]) grid[targetDay] = {};
+                        if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
+                        grid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
                     }
+                    await saveScheduleToFirebase(selectedLevel, grid);
                     showToast("تم نقل المقرر بنجاح!");
                 } else {
-                    showToast(`فشل النقل: الخانة الهدف في "${targetLocation}" مشغولة.`, "error");
-                    draggedItem = null;
-                    displaySchedule(); // Redraw to reset
-                    return;
+                    showToast(`فشل النقل: المكان مشغول.`, "error");
                 }
             }
-            
-            await saveScheduleToFirebase(selectedLevel, tempGrid);
             draggedItem = null;
         }
+
+        function findEmptySlotAtTime(day, time, course, grid) {
+            const suitableLocations = locations.filter(l => l.type === course.requiredLocationType);
+            for (const loc of suitableLocations) {
+                let isFree = true;
+                for (let i = 0; i < course.duration; i++) {
+                    if (grid[day]?.[time + i]?.[loc.name]) {
+                        isFree = false;
+                        break;
+                    }
+                }
+                if (isFree) return loc.name;
+            }
+            return null;
+        }
+
+        async function handleSwapAction() {
+            if (!dropContext) return;
+            const { sourceInfo, targetInfo } = dropContext;
+            const selectedLevel = dom.levelFilterSelect.value;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
+
+            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+            const targetCourse = grid[targetInfo.day]?.[targetInfo.time]?.[targetInfo.location];
+
+            if (!sourceCourse || !targetCourse) {
+                showToast("خطأ: لم يتم العثور على أحد المقررين.", "error");
+                closeDropModal();
+                return;
+            }
+
+            if (sourceCourse.duration !== targetCourse.duration) {
+                showToast("لا يمكن تبديل مقررين بمدة مختلفة.", "error");
+                closeDropModal();
+                return;
+            }
+
+            for (let i = 0; i < sourceCourse.duration; i++) {
+                delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                delete grid[targetInfo.day][targetInfo.time + i][targetInfo.location];
+            }
+            for (let i = 0; i < sourceCourse.duration; i++) {
+                grid[targetInfo.day][targetInfo.time + i][targetInfo.location] = { ...sourceCourse, isContinuation: i > 0 };
+                grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = { ...targetCourse, isContinuation: i > 0 };
+            }
+
+            await saveScheduleToFirebase(selectedLevel, grid);
+            showToast("تم التبديل بنجاح!");
+            closeDropModal();
+        }
+
+        async function handleInsertTogetherAction() {
+            if (!dropContext) return;
+            const { sourceInfo, targetInfo } = dropContext;
+            const selectedLevel = dom.levelFilterSelect.value;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
+
+            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+            if (!sourceCourse) {
+                showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
+                closeDropModal();
+                return;
+            }
+            
+            const newLocation = findEmptySlotAtTime(targetInfo.day, targetInfo.time, sourceCourse, grid);
+
+            if (newLocation) {
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                }
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    if (!grid[targetInfo.day]) grid[targetInfo.day] = {};
+                    if (!grid[targetInfo.day][targetTime + i]) grid[targetInfo.day][targetTime + i] = {};
+                    grid[targetInfo.day][targetInfo.time + i][newLocation] = { ...sourceCourse, isContinuation: i > 0 };
+                }
+
+                await saveScheduleToFirebase(selectedLevel, grid);
+                showToast("تم إدراج المقررين معًا بنجاح.");
+            } else {
+                showToast("لا يوجد مكان فارغ ومناسب في هذا التوقيت.", "error");
+            }
+            
+            closeDropModal();
+        }
+        
+        function closeDropModal() {
+            dom.dropActionModal.modal.style.display = 'none';
+            dropContext = null;
+            displaySchedule();
+        }
+
+
         function handleExportToFile() {
             const dataToSave = { levels, subjects, instructors, locations, courses, groups, savedSchedules };
             const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {type: "application/json"});
@@ -2033,7 +2524,6 @@
                 await batch.commit();
                 return;
             }
-            // This path is for the manual reset button.
             const batch = writeBatch(db);
             const collections = [levelsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, groupsCol];
             for (const col of collections) { const snapshot = await getDocs(query(col)); snapshot.docs.forEach(doc => batch.delete(doc.ref)); }
@@ -2043,23 +2533,51 @@
             dom.customScheduleOutput.innerHTML = '';
             showToast("تم حذف جميع البيانات والبدء من جديد.");
         }
+
+        window.handleUpdateMaxConcurrentSections = async (levelId) => {
+             const inputElement = document.getElementById(`max-concurrent-${levelId}`);
+             if (!inputElement) return;
+             const value = inputElement.value;
+             const max = value === '' ? null : parseInt(value);
+             
+             const button = inputElement.nextElementSibling;
+             toggleButtonLoading(button, true);
+
+             try {
+                const levelRef = doc(db, levelsCol.path, levelId);
+                await updateDoc(levelRef, { maxConcurrentSections: max });
+                showToast("تم حفظ الحد الأقصى للسكاشن.");
+             } catch(error) {
+                console.error("Error updating max concurrent sections:", error);
+                showToast("حدث خطأ أثناء الحفظ.", "error");
+             } finally {
+                toggleButtonLoading(button, false);
+             }
+        };
+
         function generateAdvancedLevelsHTML() {
-            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للفرق الدراسية</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <input type="text" id="adv-level-search" placeholder="ابحث عن فرقة..." class="w-full p-3 border rounded-md mb-6"> <div id="adv-levels-list" class="space-y-3"> ${levels.map(l => ` <div class="list-item flex justify-between items-center p-3 bg-gray-50 rounded-lg shadow-sm" data-id="${l.id}"> <p class="font-semibold text-md">${l.name}</p> <div class="flex items-center gap-2"> <button onclick="window.openEditModal('level', '${l.id}')" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('level', '${l.id}')" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div> </div> `).join('')} </div> </div> `;
+            const canEdit = userRole === 'admin';
+            const buttonsHtml = (l) => canEdit ? `<div class="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2"> <div class="flex-grow"> <label for="max-concurrent-${l.id}" class="text-xs font-bold text-gray-500">أقصى عدد سكاشن متزامنة</label> <div class="flex items-center gap-2 mt-1"> <input type="number" id="max-concurrent-${l.id}" min="1" placeholder="غير محدد" value="${l.maxConcurrentSections || ''}" class="w-24 p-2 border rounded-md"> <button onclick="window.handleUpdateMaxConcurrentSections('${l.id}')" class="bg-green-500 text-white font-bold p-2 px-3 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-save"></i></button> </div> </div> <div class="flex items-center gap-2 border-t sm:border-t-0 sm:border-r pt-2 sm:pt-0 sm:pr-4 mt-2 sm:mt-0"> <button onclick="window.openEditModal('level', '${l.id}')" title="تعديل اسم الفرقة" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('level', '${l.id}')" title="حذف الفرقة" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div> </div>` : '';
+
+            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للفرق الدراسية</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <input type="text" id="adv-level-search" placeholder="ابحث عن فرقة..." class="w-full p-3 border rounded-md mb-6"> <div id="adv-levels-list" class="space-y-4"> ${levels.map(l => ` <div class="list-item flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg shadow-sm gap-4" data-id="${l.id}"> <p class="font-semibold text-md">${l.name}</p> ${buttonsHtml(l)} </div> `).join('')} </div> </div> `;
         }
         function renderAdvancedInstructorsView(searchQuery = '', filterCategory = 'all') {
             dom.advancedInstructorsView.innerHTML = generateAdvancedInstructorsHTML(searchQuery, filterCategory);
-            document.getElementById('adv-instructor-search').addEventListener('input', (e) => { const currentCategory = document.querySelector('input[name="adv-category"]:checked').value; renderAdvancedInstructorsView(e.target.value, currentCategory); });
-            document.querySelectorAll('input[name="adv-category"]').forEach(radio => { radio.addEventListener('change', (e) => { const currentSearch = document.getElementById('adv-instructor-search').value; renderAdvancedInstructorsView(currentSearch, e.target.value); }); });
-            document.getElementById('adv-instructor-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const nameInput = document.getElementById('adv-instructor-name-input');
-                const name = nameInput.value.trim();
-                if (name && !instructors.some(i => i.name === name)) {
-                    await handleAddWithLoading(e, instructorsCol, { name, category: document.getElementById('adv-instructor-category-select').value, availableTimes: {}, customActivities: {} }, "تمت إضافة العضو بنجاح!");
-                } else { showToast("الاسم موجود بالفعل أو غير صالح.", "error"); }
-            });
+            if(userRole === 'admin') {
+                document.getElementById('adv-instructor-search').addEventListener('input', (e) => { const currentCategory = document.querySelector('input[name="adv-category"]:checked').value; renderAdvancedInstructorsView(e.target.value, currentCategory); });
+                document.querySelectorAll('input[name="adv-category"]').forEach(radio => { radio.addEventListener('change', (e) => { const currentSearch = document.getElementById('adv-instructor-search').value; renderAdvancedInstructorsView(currentSearch, e.target.value); }); });
+                document.getElementById('adv-instructor-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('adv-instructor-name-input');
+                    const name = nameInput.value.trim();
+                    if (name && !instructors.some(i => i.name === name)) {
+                        await handleAddWithLoading(e, instructorsCol, { name, category: document.getElementById('adv-instructor-category-select').value, availableTimes: {}, customActivities: {} }, "تمت إضافة العضو بنجاح!");
+                    } else { showToast("الاسم موجود بالفعل أو غير صالح.", "error"); }
+                });
+            }
         }
         window.handleUpdateInstructorCategory = async (instructorId) => {
+            if (userRole === 'guest') return;
             const selectElement = document.getElementById(`category-select-${instructorId}`);
             if (!selectElement) return;
             const newCategory = selectElement.value;
@@ -2095,7 +2613,10 @@
         }
         function generateAdvancedInstructorsHTML(searchQuery = '', filterCategory = 'all') {
             let filteredInstructors = instructors; if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
-            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للأعضاء</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"> <div class="md:col-span-2"> <form id="adv-instructor-form" class="p-4 border rounded-lg bg-gray-50 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end"> <div class="sm:col-span-2 grid grid-cols-2 gap-4"> <div> <label class="font-bold text-sm">اسم العضو الجديد</label> <input type="text" id="adv-instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md mt-1" required> </div> <div> <label class="font-bold text-sm">الفئة</label> <select id="adv-instructor-category-select" class="w-full p-2 border rounded-md mt-1"> ${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}">${cat}</option>`).join('')} </select> </div> </div> <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 h-10 flex items-center justify-center">إضافة عضو</button> </form> </div> <div class="p-4 border rounded-lg bg-gray-50"> <label class="font-bold text-sm">ابحث بالاسم...</label> <input type="text" id="adv-instructor-search" placeholder="بحث..." class="w-full p-2 border rounded-md mt-1" value="${searchQuery}"> </div> </div> <div class="mb-6 flex flex-wrap gap-4 justify-center"> <label class="flex items-center"><input type="radio" name="adv-category" value="all" class="ml-2" ${filterCategory === 'all' ? 'checked' : ''}> الكل</label> ${INSTRUCTOR_CATEGORIES.map(cat => `<label class="flex items-center"><input type="radio" name="adv-category" value="${cat}" class="ml-2" ${filterCategory === cat ? 'checked' : ''}> ${cat}</label>`).join('')} </div> <div id="adv-instructors-list" class="space-y-4"> ${filteredInstructors.length ? filteredInstructors.map(instructor => { const load = getInstructorLoad(instructor.name); return ` <div class="border rounded-lg overflow-hidden shadow-sm"> <div class="p-4 bg-gray-50 flex justify-between items-start"> <div> <h4 class="font-bold text-lg">${instructor.name}</h4> <div class="flex items-center gap-2 mt-2"> <select id="category-select-${instructor.id}" class="p-1 border rounded-md text-sm bg-white">${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}" ${instructor.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}</select> <button onclick="window.handleUpdateInstructorCategory('${instructor.id}')" class="bg-green-500 text-white font-bold py-1 px-3 rounded-md hover:bg-green-600 text-sm flex items-center justify-center">حفظ</button> </div> </div> <div class="flex items-center gap-2"> <button onclick="window.openEditModal('instructor', '${instructor.id}')" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('instructor', '${instructor.id}')" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div> </div> <div class="p-4"> <h5 class="font-bold text-md mb-2 text-gray-700">المقررات المسندة:</h5> ${load.courses.length ? ` <table class="w-full text-sm text-right"> <thead class="bg-gray-100 text-gray-600"> <tr> <th class="p-2">اسم المقرر</th> <th class="p-2">الفرقة</th> </tr> </thead> <tbody> ${load.courses.map(c => ` <tr class="border-b"> <td class="p-2 font-semibold">${c.name}</td> <td class="p-2">${c.level}</td> </tr> `).join('')} </tbody> <tfoot> <tr class="font-bold bg-gray-50 border-t"> <td class="p-2">الإجمالي</td> <td class="p-2">${load.totalHours} ساعة</td> </tr> </tfoot> </table> ` : '<p class="text-center text-gray-500">لم يتم إسناد أي مقررات لهذا العضو بعد.</p>'} </div> </div> `; }).join('') : '<p class="text-center text-gray-500 mt-8">لا يوجد أعضاء مطابقون لمعايير البحث.</p>'} </div> </div> `;
+            const canEdit = userRole === 'admin';
+            const addInstructorForm = canEdit ? `<div class="md:col-span-2"> <form id="adv-instructor-form" class="p-4 border rounded-lg bg-gray-50 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end"> <div class="sm:col-span-2 grid grid-cols-2 gap-4"> <div> <label class="font-bold text-sm">اسم العضو الجديد</label> <input type="text" id="adv-instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md mt-1" required> </div> <div> <label class="font-bold text-sm">الفئة</label> <select id="adv-instructor-category-select" class="w-full p-2 border rounded-md mt-1"> ${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}">${cat}</option>`).join('')} </select> </div> </div> <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 h-10 flex items-center justify-center">إضافة عضو</button> </form> </div>` : '<div class="md:col-span-2"></div>';
+
+            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للأعضاء</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"> ${addInstructorForm} <div class="p-4 border rounded-lg bg-gray-50"> <label class="font-bold text-sm">ابحث بالاسم...</label> <input type="text" id="adv-instructor-search" placeholder="بحث..." class="w-full p-2 border rounded-md mt-1" value="${searchQuery}"> </div> </div> <div class="mb-6 flex flex-wrap gap-4 justify-center"> <label class="flex items-center"><input type="radio" name="adv-category" value="all" class="ml-2" ${filterCategory === 'all' ? 'checked' : ''}> الكل</label> ${INSTRUCTOR_CATEGORIES.map(cat => `<label class="flex items-center"><input type="radio" name="adv-category" value="${cat}" class="ml-2" ${filterCategory === cat ? 'checked' : ''}> ${cat}</label>`).join('')} </div> <div id="adv-instructors-list" class="space-y-4"> ${filteredInstructors.length ? filteredInstructors.map(instructor => { const load = getInstructorLoad(instructor.name); const buttonsHtml = canEdit ? `<div class="flex items-center gap-2 mt-2"> <select id="category-select-${instructor.id}" class="p-1 border rounded-md text-sm bg-white">${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}" ${instructor.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}</select> <button onclick="window.handleUpdateInstructorCategory('${instructor.id}')" class="bg-green-500 text-white font-bold py-1 px-3 rounded-md hover:bg-green-600 text-sm flex items-center justify-center">حفظ</button> </div>` : `<p class="text-sm text-gray-600 mt-2">${instructor.category}</p>`; const editDeleteButtons = canEdit ? `<div class="flex items-center gap-2"> <button onclick="window.openEditModal('instructor', '${instructor.id}')" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('instructor', '${instructor.id}')" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div>` : ''; return ` <div class="border rounded-lg overflow-hidden shadow-sm"> <div class="p-4 bg-gray-50 flex justify-between items-start"> <div> <h4 class="font-bold text-lg">${instructor.name}</h4> ${buttonsHtml} </div> ${editDeleteButtons} </div> <div class="p-4"> <h5 class="font-bold text-md mb-2 text-gray-700">المقررات المسندة:</h5> ${load.courses.length ? ` <table class="w-full text-sm text-right"> <thead class="bg-gray-100 text-gray-600"> <tr> <th class="p-2">اسم المقرر</th> <th class="p-2">الفرقة</th> </tr> </thead> <tbody> ${load.courses.map(c => ` <tr class="border-b"> <td class="p-2 font-semibold">${c.name}</td> <td class="p-2">${c.level}</td> </tr> `).join('')} </tbody> <tfoot> <tr class="font-bold bg-gray-50 border-t"> <td class="p-2">الإجمالي</td> <td class="p-2">${load.totalHours} ساعة</td> </tr> </tfoot> </table> ` : '<p class="text-center text-gray-500">لم يتم إسناد أي مقررات لهذا العضو بعد.</p>'} </div> </div> `; }).join('') : '<p class="text-center text-gray-500 mt-8">لا يوجد أعضاء مطابقون لمعايير البحث.</p>'} </div> </div> `;
         }
         function formatTimeSlot(startHour, duration = 1) { const endHour = startHour + duration; const format12 = (hour) => { const ampm = hour >= 12 && hour < 24 ? 'م' : 'ص'; const h = hour % 12 || 12; return `${h} ${ampm}`; }; if (duration === 1) { return `${format12(startHour)} - ${format12(endHour)}`; } return `${format12(startHour)} - ${format12(endHour)}`; }
         function generateHslColor(str, asHex = false) {
@@ -2137,8 +2658,8 @@
             document.body.removeChild(textArea);
         }
 
-        // New functions for adding/editing level activities
         window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null) => {
+            if (userRole === 'guest') return;
             const level = dom.levelFilterSelect.value;
             if (!level || level === 'all') {
                 showToast('يرجى تحديد فرقة أولاً.', 'error');
@@ -2180,7 +2701,7 @@
             
             modal.nameInput.value = isEditMode ? activityData.name : '';
             modal.durationInput.value = isEditMode ? activityData.duration : '1';
-            modal.durationInput.disabled = isEditMode; // Duration change on edit is complex, so disable it for now.
+            modal.durationInput.disabled = isEditMode;
             modal.colorInput.value = isEditMode ? (activityData.color || '#a7f3d0') : '#a7f3d0';
 
             modal.modal.style.display = 'block';
