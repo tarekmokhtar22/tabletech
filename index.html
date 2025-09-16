@@ -628,12 +628,16 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, updateDoc, writeBatch, query, getDocs, setDoc, getDoc, deleteField } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        let userRole = null; // 'admin' or 'guest'
+        let userRole = localStorage.getItem('userRole'); // 'admin' or 'guest'
 
         const loginSection = document.getElementById('login-section');
         const appSection = document.getElementById('app-section');
+        
+        if (userRole) {
+            showApp();
+        }
 
         // --- LOGIN LOGIC ---
         const loginForm = document.getElementById('loginForm');
@@ -698,6 +702,7 @@
 
 			if (isLoginSuccessful) {
 				errorMessage.textContent = '';
+                localStorage.setItem('userRole', userRole);
                 showApp();
 			} else {
 				const wrapLogin = document.querySelector('.wrap-login');
@@ -1065,7 +1070,18 @@
             onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error);
             onSnapshot(query(groupsCol), s => { groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroups(); updateGroupSelector(); onCollectionLoaded(); }, console.error);
             onSnapshot(query(subjectsCol), s => { subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); subjects.forEach(sub => courseColors[sub.name] = sub.color || generateHslColor(sub.name)); renderSubjects(); updateCourseSelector(); renderSummaryTable(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(instructorsCol), s => { instructors = s.docs.map(d => ({ id: d.id, ...d.data() })); renderInstructors(); updateInstructorSelector(); onCollectionLoaded(); }, console.error);
+            onSnapshot(query(instructorsCol), s => { 
+                instructors = s.docs.map(d => ({ id: d.id, ...d.data() })); 
+                renderInstructors(); 
+                updateInstructorSelector(); 
+                if (activeCustomView === 'members') {
+                    const search = document.getElementById('member-search-input')?.value || '';
+                    const category = document.querySelector('input[name="category"]:checked')?.value || 'all';
+                    const level = document.getElementById('member-level-filter')?.value || 'all';
+                    displayMemberSchedules(search, category, level);
+                }
+                onCollectionLoaded(); 
+            }, console.error);
             onSnapshot(query(locationsCol), s => { locations = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLocations(); onCollectionLoaded(); }, console.error);
             onSnapshot(query(coursesCol), s => { courses = s.docs.map(d => ({ id: d.id, ...d.data() })); renderCourses(); renderSummaryTable(); onCollectionLoaded(); }, console.error);
             onSnapshot(query(schedulesCol), s => {
@@ -1112,6 +1128,7 @@
 
         function setupEventListeners() {
             document.getElementById('logout-btn').addEventListener('click', () => {
+                localStorage.removeItem('userRole');
                 location.reload();
             });
 
@@ -2008,6 +2025,10 @@
             document.getElementById('member-search-input').addEventListener('input', updateMemberView);
             document.querySelectorAll('input[name="category"]').forEach(radio => radio.addEventListener('change', updateMemberView));
             document.getElementById('member-level-filter').addEventListener('change', updateMemberView);
+
+            if (userRole === 'admin') {
+                addMemberViewDragDropListeners(); 
+            }
         }
         function generateAggregatedLocationTableHtml(filterType, mainTitle) {
             const filteredItems = locations.filter(l => l.type === filterType);
@@ -2052,7 +2073,7 @@
                                 type: 'custom',
                                 name: activity.text,
                                 instructor: instructor.name,
-                                level: ' ',
+                                level: '',
                                 ...activity
                             });
                         }
@@ -2169,9 +2190,13 @@
                                         let contentHtml = '';
                                         const scheduleItemClick = canEdit ? `onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')"` : '';
                                         const customActivityClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.id}')"` : '';
+                                        const draggableAttr = canEdit ? 'draggable="true"' : '';
 
-                                        if (app.type === 'course') { contentHtml = `<div class="schedule-item text-[9px]" ${scheduleItemClick} style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
-                                        else { contentHtml = `<div class="schedule-item text-[9px]" ${customActivityClick} style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; }
+                                        if (app.type === 'course') { 
+                                            contentHtml = `<div class="schedule-item text-[9px]" ${scheduleItemClick} style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; 
+                                        } else { // Custom activity
+                                            contentHtml = `<div class="schedule-item text-[9px]" ${draggableAttr} data-type="activity" data-activity-id="${app.id}" data-instructor-id="${instructor.id}" ${customActivityClick} style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; 
+                                        }
                                         allHtml += contentHtml;
                                     });
                                     allHtml += `</div></td>`;
@@ -2248,7 +2273,8 @@
 
                     if (item.type === 'custom_activity' || item.type === 'custom') {
                         practicalHours += item.duration || 0;
-                        summaryRows.push(`<tr class="border-b bg-gray-50"><td class="p-2 font-semibold">${item.name || item.text} ${item.location ? `(${item.location})` : ''} (${item.type === 'custom' ? 'نشاط شخصي' : 'نشاط بالجدول'})</td><td class="p-2 text-center">-</td><td class="p-2 text-center">${item.duration || 0}</td></tr>`);
+                        const activityTypeText = item.type === 'custom' ? '' : 'نشاط بالجدول';
+                        summaryRows.push(`<tr class="border-b bg-gray-50"><td class="p-2 font-semibold">${item.name || item.text} ${item.location ? `(${item.location})` : ''} ${activityTypeText ? `(${activityTypeText})` : ''}</td><td class="p-2 text-center">-</td><td class="p-2 text-center">${item.duration || 0}</td></tr>`);
                     } else {
                         const subject = subjects.find(s => s.name === item.baseName);
                         const courseTheoretical = item.type === 'lecture' ? (item.duration || 0) : 0;
@@ -2292,6 +2318,85 @@
         function addDragAndDropListeners(containerSelector) { document.querySelectorAll(`${containerSelector} .schedule-item[draggable="true"]`).forEach(item => item.addEventListener('dragstart', handleDragStart)); document.querySelectorAll(`${containerSelector} .drop-target`).forEach(target => { target.addEventListener('dragover', e => e.preventDefault()); target.addEventListener('dragenter', e => e.target.closest('.drop-target')?.classList.add('drag-over')); target.addEventListener('dragleave', e => e.target.closest('.drop-target')?.classList.remove('drag-over')); target.addEventListener('drop', handleDrop); }); }
         function handleDragStart(e) { draggedItem = e.target.closest('.schedule-item'); setTimeout(() => { if(draggedItem) draggedItem.style.opacity = '0.5'; }, 0); }
         
+        function addMemberViewDragDropListeners() {
+            document.querySelectorAll('#members-view-content .schedule-item[draggable="true"]').forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+            });
+            document.querySelectorAll('#members-view-content .empty-slot').forEach(target => {
+                target.addEventListener('dragover', e => e.preventDefault());
+                target.addEventListener('dragenter', e => e.target.classList.add('drag-over'));
+                target.addEventListener('dragleave', e => e.target.classList.remove('drag-over'));
+                target.addEventListener('drop', handleMemberViewDrop);
+            });
+        }
+        
+        async function handleMemberViewDrop(e) {
+            e.preventDefault();
+            if (!draggedItem) return;
+
+            const targetCell = e.target.closest('.empty-slot');
+            draggedItem.style.opacity = '1';
+            targetCell.classList.remove('drag-over');
+
+            const dataType = draggedItem.dataset.type;
+            if (dataType !== 'activity') {
+                showToast("يمكن نقل الأنشطة المخصصة فقط في هذا العرض.", "error");
+                draggedItem = null;
+                return;
+            }
+            
+            const activityId = draggedItem.dataset.activityId;
+            const instructorId = draggedItem.dataset.instructorId;
+
+            const onclickAttr = targetCell.getAttribute('onclick');
+            const match = onclickAttr.match(/'([^']*)',\s*(\d+)/);
+            if (!match) {
+                draggedItem = null;
+                return;
+            }
+            const newDay = match[1];
+            const newTime = parseInt(match[2]);
+
+            const instructor = instructors.find(i => i.id === instructorId);
+            const activity = instructor.customActivities[activityId];
+
+            let isConflict = false;
+            for (let i = 0; i < activity.duration; i++) {
+                for (const levelName in savedSchedules) {
+                    const grid = savedSchedules[levelName];
+                    for (const loc in grid[newDay]?.[newTime + i] || {}) {
+                        if (grid[newDay][newTime + i][loc]?.instructor === instructor.name) {
+                            isConflict = true; break;
+                        }
+                    }
+                    if(isConflict) break;
+                }
+                if(isConflict) break;
+                for (const actId in instructor.customActivities) {
+                    if (actId === activityId) continue;
+                    const otherActivity = instructor.customActivities[actId];
+                    if (otherActivity.day === newDay && (newTime + i >= otherActivity.time && newTime + i < otherActivity.time + otherActivity.duration)) {
+                        isConflict = true; break;
+                    }
+                }
+                if(isConflict) break;
+            }
+
+            if (isConflict) {
+                showToast("لا يمكن النقل: يوجد تعارض في التوقيت.", "error");
+            } else {
+                const instructorRef = doc(db, instructorsCol.path, instructorId);
+                const updates = {};
+                updates[`customActivities.${activityId}.day`] = newDay;
+                updates[`customActivities.${activityId}.time`] = newTime;
+                await updateDoc(instructorRef, updates);
+                showToast("تم نقل النشاط بنجاح.");
+            }
+            
+            draggedItem = null;
+        }
+
+
         async function handleDrop(e) {
             e.preventDefault();
             if (!draggedItem) return;
