@@ -17,6 +17,13 @@
         .drop-target { display: flex; flex-direction: column; gap: 2px; min-height: 50px; border-radius: 6px; transition: background-color 0.2s; }
         .drag-over { background-color: #dcfce7; border: 2px dashed #4ade80; }
         
+        .session-lab {
+            padding: 2px 4px;
+            font-size: 10px;
+            line-height: 1.2;
+            border-left: 4px solid #14b8a6 !important; /* Teal color */
+        }
+        
         /* Conflict Styling */
         .conflict-item-visual { border-color: #ef4444 !important; animation: pulse-red 2s infinite; }
         .conflict-badge { position: absolute; top: 2px; left: 2px; background-color: #ef4444; color: white; font-size: 10px; padding: 1px 5px; border-radius: 99px; font-weight: bold; z-index: 10; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
@@ -201,9 +208,11 @@
                             <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
                             <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
                             
-                            <label class="font-bold text-sm text-gray-600">المجموعة (اختياري للمحاضرات)</label>
-                            <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
-                            
+                            <div id="group-select-container">
+                                <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
+                                <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
+                            </div>
+
                             <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
                             <div>
                                 <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
@@ -214,7 +223,16 @@
                     </div>
                      <div class="bg-white p-6 rounded-xl shadow-md">
                         <h2 class="text-xl font-bold mb-4 text-gray-600">قائمة المحاضرات والسكاشن</h2>
-                        <div id="courses-list" class="space-y-2 max-h-[calc(100vh-400px)] overflow-y-auto"></div>
+                         <div class="flex border-b mb-4">
+                            <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
+                            <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
+                            <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
+                        </div>
+                        <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
+                            <div id="courses-list-all"></div>
+                            <div id="courses-list-lectures" class="hidden"></div>
+                            <div id="courses-list-labs" class="hidden"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -275,7 +293,7 @@
                     <label class="font-bold text-sm text-gray-600">العضو</label>
                     <select id="course-edit-instructor-select" class="w-full p-2 border rounded-md"></select>
                 </div>
-                <div>
+                 <div id="course-edit-group-select-container">
                     <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
                     <select id="course-edit-group-select" class="w-full p-2 border rounded-md"></select>
                 </div>
@@ -289,6 +307,9 @@
                 </div>
                 <button id="course-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
                 <button id="course-edit-modal-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2">حذف من الجدول</button>
+                <button id="course-edit-modal-split-btn" class="w-full bg-yellow-500 text-white font-bold py-2 rounded-md hover:bg-yellow-600 mt-2 hidden">فصل المقرر</button>
+                <button id="course-edit-modal-merge-btn" class="w-full bg-blue-500 text-white font-bold py-2 rounded-md hover:bg-blue-600 mt-2 hidden">دمج المقرر</button>
+
             </div>
         </div>
     </div>
@@ -311,6 +332,18 @@
                     </select>
                 </div>
                 <button id="location-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="drop-action-modal" class="modal">
+        <div class="modal-content">
+            <h3 class="text-lg font-bold mb-4">اختر الإجراء</h3>
+            <p class="mb-6">ماذا تريد أن تفعل بهذا المقرر؟</p>
+            <div class="flex justify-end gap-4">
+                <button id="drop-action-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
+                <button id="drop-action-insert-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">إدراج معًا</button>
+                <button id="drop-action-swap-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">تبديل</button>
             </div>
         </div>
     </div>
@@ -389,6 +422,7 @@
         let activeCustomView = null;
         let showConflicts = true;
         let ignoredConflicts = new Set();
+        let dropContext = null;
         
         const DAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
         const TIME_SLOTS_HOURLY = Array.from({ length: 10 }, (_, i) => i + 8); 
@@ -409,7 +443,7 @@
             instructorForm: document.getElementById('instructor-form'), instructorsList: document.getElementById('instructors-list'),
             locationForm: document.getElementById('location-form'), locationsList: document.getElementById('locations-list'),
             courseForm: document.getElementById('course-form'), courseNameSelect: document.getElementById('course-name-select'),
-            instructorSelect: document.getElementById('instructor-select'), coursesList: document.getElementById('courses-list'),
+            instructorSelect: document.getElementById('instructor-select'),
             sessionType: document.getElementById('session-type'),
             courseGroupSelect: document.getElementById('course-group-select'),
             generateBtn: document.getElementById('generate-btn'), locationsViewBtn: document.getElementById('locations-view-btn'),
@@ -436,12 +470,20 @@
             courseEditGroupSelect: document.getElementById('course-edit-group-select'),
             courseEditModalSaveBtn: document.getElementById('course-edit-modal-save-btn'),
             courseEditModalDeleteBtn: document.getElementById('course-edit-modal-delete-btn'),
+            courseEditModalSplitBtn: document.getElementById('course-edit-modal-split-btn'),
+            courseEditModalMergeBtn: document.getElementById('course-edit-modal-merge-btn'),
             locationEditModal: {
                 modal: document.getElementById('location-edit-modal'),
                 closeBtn: document.getElementById('close-location-edit-modal-btn'),
                 nameInput: document.getElementById('location-edit-name-input'),
                 typeSelect: document.getElementById('location-edit-type-select'),
                 saveBtn: document.getElementById('location-edit-modal-save-btn'),
+            },
+            dropActionModal: {
+                modal: document.getElementById('drop-action-modal'),
+                cancelBtn: document.getElementById('drop-action-cancel-btn'),
+                swapBtn: document.getElementById('drop-action-swap-btn'),
+                insertBtn: document.getElementById('drop-action-insert-btn'),
             },
             customActivityModal: document.getElementById('custom-activity-modal'),
             closeCustomActivityModalBtn: document.getElementById('close-custom-activity-modal-btn'),
@@ -471,6 +513,16 @@
                 colorInput: document.getElementById('level-activity-color-input'),
                 saveBtn: document.getElementById('level-activity-modal-save-btn'),
             },
+            courseLists: {
+                all: document.getElementById('courses-list-all'),
+                lectures: document.getElementById('courses-list-lectures'),
+                labs: document.getElementById('courses-list-labs')
+            },
+            filterBtns: {
+                all: document.getElementById('filter-all-btn'),
+                lectures: document.getElementById('filter-lectures-btn'),
+                labs: document.getElementById('filter-labs-btn')
+            }
         };
         
         let db, auth, userId;
@@ -652,6 +704,32 @@
                      detailsHtml += `<p class="font-bold">سيتم فك إسناد هذا العضو من المقررات التالية (لن يتم حذف المقررات نفسها):</p><ul>${dependentCourses.map(c => `<li>- ${c.name}</li>`).join('')}</ul>`;
                      dependentCourses.forEach(c => batch.update(doc(coursesCol, c.id), { instructor: 'غير محدد' }));
                  }
+            } else if (type === 'course') {
+                detailsHtml += `<p class="font-bold mt-2">سيتم حذف هذا المقرر من جميع الجداول الدراسية المسكن بها.</p>`;
+                for (const levelName in savedSchedules) {
+                    let grid = JSON.parse(JSON.stringify(savedSchedules[levelName]));
+                    let gridWasModified = false;
+                    for (const day in grid) {
+                        for (const time in grid[day]) {
+                            for (const loc in grid[day][time]) {
+                                const cellData = grid[day][time][loc];
+                                if (cellData && cellData.id === id) {
+                                    const duration = cellData.duration || 1;
+                                    for (let i = 0; i < duration; i++) {
+                                        if (grid[day]?.[parseInt(time) + i]?.[loc]) {
+                                            delete grid[day][parseInt(time) + i][loc];
+                                        }
+                                    }
+                                    gridWasModified = true;
+                                }
+                            }
+                        }
+                    }
+                    if (gridWasModified) {
+                        const scheduleRef = doc(db, schedulesCol.path, levelName);
+                        batch.update(scheduleRef, { grid: JSON.stringify(grid) });
+                    }
+                }
             }
              
             await showConfirmModal(confirmationText, async () => {
@@ -777,11 +855,6 @@
                 toggleButtonLoading(button, false);
                 return; 
             }
-            if (sessionType === 'lab' && !groupName) { 
-                showToast("الرجاء اختيار المجموعة للسكشن.", "error");
-                toggleButtonLoading(button, false);
-                return; 
-            }
             
             try {
                 const subject = subjects.find(s => s.name === subjectName);
@@ -795,7 +868,7 @@
                         type: sessionType,
                         requiredLocationType: document.getElementById('location-type-select').value,
                         duration: parseInt(document.getElementById('duration').value),
-                        groupName: groupName || null
+                        groupName: sessionType === 'lecture' ? (groupName || null) : null
                     };
                     await addDoc(coursesCol, courseData);
                 }
@@ -833,7 +906,7 @@
             detectAndDisplayConflicts();
         });
         
-        [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn].forEach(btn => {
+        [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.dropActionModal.cancelBtn].forEach(btn => {
             if(btn) btn.onclick = () => btn.closest('.modal').style.display = "none";
         });
         window.onclick = (event) => { 
@@ -841,6 +914,15 @@
                 event.target.style.display = "none";
             }
         };
+
+        dom.sessionType.addEventListener('change', (e) => {
+            const groupSelectContainer = document.getElementById('group-select-container');
+            if (e.target.value === 'lecture') {
+                groupSelectContainer.style.display = 'block';
+            } else {
+                groupSelectContainer.style.display = 'none';
+            }
+        });
         
         function createControlButtons(type, id) { return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; }
         function renderSubjects() {
@@ -851,7 +933,17 @@
         function renderCourses() {
             const selectedLevel = dom.levelFilterSelect.value;
             const coursesToDisplay = selectedLevel === 'all' ? courses : courses.filter(c => subjects.some(s => s.name === c.baseName && s.academicLevel === selectedLevel));
-            dom.coursesList.innerHTML = coursesToDisplay.length ? coursesToDisplay.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-r-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div><button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div>`).join('') : '<p class="text-gray-400">لم يتم إضافة أي محاضرات لهذه الفرقة.</p>';
+
+            const lectures = coursesToDisplay.filter(c => c.type === 'lecture');
+            const labs = coursesToDisplay.filter(c => c.type === 'lab');
+
+            const renderList = (courseArray) => {
+                 return courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div><button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button></div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
+            }
+
+            dom.courseLists.all.innerHTML = renderList(coursesToDisplay);
+            dom.courseLists.lectures.innerHTML = renderList(lectures);
+            dom.courseLists.labs.innerHTML = renderList(labs);
         }
         function renderSummaryTable() {
             const selectedLevel = dom.levelFilterSelect.value;
@@ -879,7 +971,7 @@
                 return;
             }
             const filteredGroups = groups.filter(g => g.academicLevel === selectedLevel);
-            dom.courseGroupSelect.innerHTML = '<option value="">اختر المجموعة...</option>' + filteredGroups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
+            dom.courseGroupSelect.innerHTML = '<option value="">(بدون مجموعة)</option>' + filteredGroups.map(g => `<option value="${g.name}">${g.name}</option>`).join('');
         }
         
         function updateCourseSelector() {
@@ -941,11 +1033,11 @@
         
         async function handleUpdateItem(type, id, newName, options = {}) {
             if (!newName) return;
-            const collectionInfo = { level: {col: levelsCol }, group: {col: groupsCol }, subject: {col: subjectsCol }, instructor: {col: instructorsCol }, location: {col: locationsCol } }[type];
+            const collectionInfo = { level: {col: levelsCol }, group: {col: groupsCol}, subject: {col: subjectsCol }, instructor: {col: instructorsCol }, location: {col: locationsCol } }[type];
             const item = { level: levels, group: groups, subject: subjects, instructor: instructors, location: locations }[type].find(i => i.id === id);
             const oldName = item.name;
 
-            const isDuplicate = (type !== 'group' && { level: levels, subject: subjects, instructor: instructors, location: locations }[type]?.some(i => i.name === newName && i.id !== id));
+            const isDuplicate = ({ level: levels, subject: subjects, instructor: instructors, location: locations }[type]?.some(i => i.name === newName && i.id !== id));
             if (isDuplicate) {
                 return showToast("هذا الاسم موجود بالفعل.", "error");
             }
@@ -1019,24 +1111,51 @@
             return locations.filter(loc => { if (loc.type !== requiredType) return false; let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; });
         }
         window.openScheduleItemModal = (courseId, day, time, locationName, levelOverride = null) => {
-            const course = courses.find(c => c.id === courseId) || Object.values(savedSchedules).flatMap(level => Object.values(level)).flatMap(day => Object.values(day)).flatMap(time => Object.values(time)).find(c => c && c.id === courseId);
-            if (!course) return; 
-            const subject = subjects.find(s => s.name === course.baseName); if (!subject) return;
+            const courseDataFromGrid = savedSchedules[levelOverride || dom.levelFilterSelect.value]?.[day]?.[time]?.[locationName];
+            if (!courseDataFromGrid) return;
 
-            const sectionNameInput = document.getElementById('course-edit-section-name-input'); const sectionNameContainer = document.getElementById('course-edit-section-name-container');
-            dom.courseEditModalTitle.textContent = `تعديل: ${course.name}`; document.getElementById('course-edit-subject-name-input').value = subject.name;
-            if (course.type === 'lab') { sectionNameInput.value = course.name; sectionNameContainer.classList.remove('hidden'); } else { sectionNameContainer.classList.add('hidden'); }
+            const course = courses.find(c => c.id === courseId);
+            const subject = subjects.find(s => s.name === courseDataFromGrid.baseName);
+            if (!subject) return;
+
+            dom.courseEditModalTitle.textContent = `تعديل: ${courseDataFromGrid.name}`;
+            document.getElementById('course-edit-subject-name-input').value = subject.name;
             
-            dom.courseEditInstructorSelect.innerHTML = instructors.map(i => `<option value="${i.name}" ${i.name === course.instructor ? 'selected' : ''}>${i.name}</option>`).join('');
-            dom.courseEditGroupSelect.innerHTML = '<option value="">بدون مجموعة</option>' + groups.map(g => `<option value="${g.name}" ${g.name === course.groupName ? 'selected' : ''}>${g.name}</option>`).join('');
+            const groupContainer = document.getElementById('course-edit-group-select-container');
+            groupContainer.style.display = courseDataFromGrid.type === 'lecture' ? 'block' : 'none';
 
-            const currentLevel = levelOverride || dom.levelFilterSelect.value; const locationSelect = document.getElementById('course-edit-location-select'); const availableLocations = findAvailableLocations(course, day, time, currentLevel);
-            locationSelect.innerHTML = `<option value="${locationName}">${locationName} (الحالي)</option>`; availableLocations.forEach(loc => { if (loc.name !== locationName) { locationSelect.innerHTML += `<option value="${loc.name}">${loc.name}</option>`; } });
+            const sectionNameContainer = document.getElementById('course-edit-section-name-container');
+            if (courseDataFromGrid.type === 'lab') {
+                document.getElementById('course-edit-section-name-input').value = courseDataFromGrid.name;
+                sectionNameContainer.classList.remove('hidden');
+            } else {
+                sectionNameContainer.classList.add('hidden');
+            }
+
+            dom.courseEditInstructorSelect.innerHTML = instructors.map(i => `<option value="${i.name}" ${i.name === courseDataFromGrid.instructor ? 'selected' : ''}>${i.name}</option>`).join('');
+            
+            const currentLevel = levelOverride || dom.levelFilterSelect.value;
+            const groupSelect = document.getElementById('course-edit-group-select');
+            const filteredGroups = groups.filter(g => g.academicLevel === currentLevel);
+            groupSelect.innerHTML = '<option value="">(بدون مجموعة)</option>' + filteredGroups.map(g => `<option value="${g.name}" ${g.name === courseDataFromGrid.groupName ? 'selected' : ''}>${g.name}</option>`).join('');
+
+            const locationSelect = document.getElementById('course-edit-location-select');
+            const availableLocations = findAvailableLocations(courseDataFromGrid, day, time, currentLevel);
+            locationSelect.innerHTML = `<option value="${locationName}">${locationName} (الحالي)</option>`;
+            availableLocations.forEach(loc => { if (loc.name !== locationName) { locationSelect.innerHTML += `<option value="${loc.name}">${loc.name}</option>`; } });
             document.getElementById('course-edit-color-input').value = subject.color || generateHslColor(subject.name, true);
+            
+            dom.courseEditModalSplitBtn.classList.toggle('hidden', courseDataFromGrid.isSplit || courseDataFromGrid.duration <= 1);
+            dom.courseEditModalMergeBtn.classList.toggle('hidden', !courseDataFromGrid.isSplit);
+
             dom.courseEditModal.style.display = 'block';
-            dom.courseEditModalSaveBtn.onclick = () => handleScheduleItemUpdate({ courseId: course.id, subjectId: subject.id, originalSubjectName: subject.name, originalLocation: locationName, day: day, time: time, level: currentLevel });
+
+            dom.courseEditModalSaveBtn.onclick = () => handleScheduleItemUpdate({ courseId: courseDataFromGrid.id, subjectId: subject.id, originalSubjectName: subject.name, originalLocation: locationName, day: day, time: time, level: currentLevel });
             dom.courseEditModalDeleteBtn.onclick = () => handleDeleteFromSchedule(courseId, day, time, locationName, currentLevel);
+            dom.courseEditModalSplitBtn.onclick = () => handleSplitCourse(courseId, day, time, locationName, currentLevel);
+            dom.courseEditModalMergeBtn.onclick = () => handleMergeCourse(courseId, currentLevel);
         };
+
         async function handleScheduleItemUpdate(context) {
             const { courseId, subjectId, originalSubjectName, originalLocation, day, time, level } = context; 
             const newSubjectName = document.getElementById('course-edit-subject-name-input').value.trim();
@@ -1045,7 +1164,7 @@
             const course = courses.find(c => c.id === courseId);
             const newSectionName = document.getElementById('course-edit-section-name-input').value.trim();
             const newInstructor = dom.courseEditInstructorSelect.value;
-            const newGroupName = dom.courseEditGroupSelect.value;
+            const newGroupName = document.getElementById('course-edit-group-select').value;
             const newLocation = document.getElementById('course-edit-location-select').value;
             const newColor = document.getElementById('course-edit-color-input').value;
 
@@ -1053,13 +1172,17 @@
             const subjectRef = doc(db, subjectsCol.path, subjectId);
             batch.update(subjectRef, { color: newColor });
 
-            const courseRef = doc(db, coursesCol.path, courseId);
-            let courseUpdates = {};
-            if (newInstructor !== course.instructor) courseUpdates.instructor = newInstructor;
-            if (newGroupName !== (course.groupName || '')) courseUpdates.groupName = newGroupName || null;
-            if (course.type === 'lab' && newSectionName && newSectionName !== course.name) courseUpdates.name = newSectionName;
-            if (Object.keys(courseUpdates).length > 0) {
-                batch.update(courseRef, courseUpdates);
+            if(course) {
+                const courseRef = doc(db, coursesCol.path, courseId);
+                let courseUpdates = {};
+                if (newInstructor !== course.instructor) courseUpdates.instructor = newInstructor;
+                if (course.type === 'lecture') {
+                    courseUpdates.groupName = newGroupName || null;
+                }
+                if (course.type === 'lab' && newSectionName && newSectionName !== course.name) courseUpdates.name = newSectionName;
+                if (Object.keys(courseUpdates).length > 0) {
+                    batch.update(courseRef, courseUpdates);
+                }
             }
             await batch.commit();
 
@@ -1067,13 +1190,20 @@
             const courseDataInGrid = grid[day]?.[parseInt(time)]?.[originalLocation];
             
             if (courseDataInGrid) {
-                const updatedCourseData = { ...courseDataInGrid, ...courseUpdates, name: (courseUpdates.name || courseDataInGrid.name) };
+                let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
+                if (courseDataInGrid.type === 'lecture') {
+                    updatedCourseData.groupName = newGroupName || null;
+                }
+                if (courseDataInGrid.type === 'lab' && newSectionName) {
+                    updatedCourseData.name = newSectionName;
+                }
+
 
                 if (newLocation !== originalLocation) {
-                    for (let i = 0; i < course.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { grid[day][parseInt(time) + i][originalLocation] = null; } }
-                    for (let i = 0; i < course.duration; i++) { if (!grid[day]) grid[day] = {}; if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {}; grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 }; }
+                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { delete grid[day][parseInt(time) + i][originalLocation]; } }
+                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (!grid[day]) grid[day] = {}; if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {}; grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 }; }
                 } else {
-                    for (let i = 0; i < course.duration; i++) { if (grid[day]?.[parseInt(time) + i]?.[originalLocation]) { grid[day][parseInt(time) + i][originalLocation] = { ...updatedCourseData, isContinuation: i > 0 }; } }
+                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]?.[originalLocation]) { grid[day][parseInt(time) + i][originalLocation] = { ...updatedCourseData, isContinuation: i > 0 }; } }
                 }
                 await saveScheduleToFirebase(level, grid);
             }
@@ -1106,6 +1236,60 @@
                 dom.courseEditModal.style.display = 'none';
             });
         }
+
+        async function handleSplitCourse(courseId, day, time, locationName, level) {
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+            const originalCourse = grid[day]?.[time]?.[locationName];
+            if (!originalCourse || originalCourse.duration <= 1) return;
+
+            for (let i = 0; i < originalCourse.duration; i++) {
+                if (grid[day]?.[time + i]?.[locationName]) {
+                    delete grid[day][time + i][locationName];
+                }
+            }
+
+            for (let i = 0; i < originalCourse.duration; i++) {
+                const newSplitPart = {
+                    ...originalCourse,
+                    duration: 1,
+                    isSplit: true,
+                    originalDuration: originalCourse.duration,
+                    isContinuation: false 
+                };
+                if (!grid[day][time + i]) grid[day][time + i] = {};
+                grid[day][time + i][locationName] = newSplitPart;
+            }
+
+            await saveScheduleToFirebase(level, grid);
+            dom.courseEditModal.style.display = 'none';
+            showToast("تم فصل المقرر بنجاح.");
+        }
+
+        async function handleMergeCourse(courseId, level) {
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+            let gridWasModified = false;
+            let originalDuration = 0;
+
+            for (const day in grid) {
+                for (const time in grid[day]) {
+                    for (const loc in grid[day][time]) {
+                        const cellData = grid[day][time][loc];
+                        if (cellData && cellData.id === courseId && cellData.isSplit) {
+                            originalDuration = cellData.originalDuration; // Capture original duration
+                            delete grid[day][time][loc];
+                            gridWasModified = true;
+                        }
+                    }
+                }
+            }
+            
+            if (gridWasModified) {
+                await saveScheduleToFirebase(level, grid);
+                dom.courseEditModal.style.display = 'none';
+                showToast(`تم دمج المقرر (${originalDuration} ساعات). يمكنك الآن إضافته من جديد من القائمة.`);
+            }
+        }
+
 
         window.openCustomActivityModal = (instructorId, day, time, activityId = null) => {
             const instructor = instructors.find(i => i.id === instructorId);
@@ -1307,14 +1491,11 @@
                             suggestion = `نقل أحد المقررين إلى مكان آخر فارغ من نفس النوع.`;
                         }
                     } else if (itemA.instructor && itemA.instructor !== 'غير محدد' && itemA.instructor === itemB.instructor) {
-                        if (itemA.baseName !== itemB.baseName) {
+                         if (itemA.baseName !== itemB.baseName) {
                             conflictReason = `تعارض عضو هيئة تدريس: ${itemA.instructor} لديه مقررين في نفس الوقت.`;
                             suggestion = `تغيير عضو هيئة التدريس لأحد المقررين، أو تغيير توقيت أحدهما.`;
                         }
-                    } else if (itemA.groupName && itemB.groupName && itemA.groupName === itemB.groupName && itemA.level === itemB.level) {
-                        conflictReason = `تعارض مجموعة: ${itemA.groupName} (${itemA.level})`;
-                        suggestion = `تغيير توقيت أحد المقررين.`;
-                    }
+                    } 
 
                     if(conflictReason) {
                         conflicts.push({ reason: conflictReason, suggestion, itemA, itemB, conflictId });
@@ -1364,7 +1545,8 @@
         }
 
         function displaySchedule(isCustomView = false) {
-            const level = dom.levelFilterSelect.value; if (!level) return;
+            const level = dom.levelFilterSelect.value;
+            if (!level) return;
             const targetElement = isCustomView ? dom.customScheduleOutput : dom.scheduleOutput;
             let tableHtml = `<div class="table-container">
                                 <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
@@ -1376,13 +1558,22 @@
                 let time_cursor = 0;
                 while (time_cursor < TIME_SLOTS_HOURLY.length) {
                     const time = TIME_SLOTS_HOURLY[time_cursor];
-                    const itemsInCell = locations.map(loc => ({ locName: loc.name, data: scheduleGrid[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
+                    let itemsInCell = locations.map(loc => ({ locName: loc.name, data: scheduleGrid[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
+                    
+                    itemsInCell.sort((a, b) => {
+                        if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
+                        if (a.data.type !== 'lecture' && b.data.type === 'lecture') return 1;
+                        return 0;
+                    });
+
                     if (itemsInCell.length > 0) {
-                        const duration = itemsInCell[0].data.duration || 1; const containerClass = itemsInCell.length > 1 ? 'multi-item-container' : '';
+                        const duration = itemsInCell[0].data.duration || 1; 
+                        const containerClass = itemsInCell.length > 1 ? 'multi-item-container' : '';
                         tableHtml += `<td class="p-1 border border-gray-300 align-top" colspan="${duration}">`;
                         tableHtml += `<div class="drop-target ${containerClass}" data-day="${day}" data-time="${time}">`;
                         itemsInCell.forEach(item => { 
                             const { locName, data: cellData } = item; 
+                            const sessionClass = cellData.type === 'lab' ? 'session-lab' : '';
                             if (cellData.type === 'custom_activity') {
                                 const bgColor = cellData.color || '#e5e7eb';
                                 const editClickHandler = `window.openLevelActivityModal('${day}', ${time}, '${locName}', '${cellData.id}')`;
@@ -1390,7 +1581,7 @@
                             } else {
                                 const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; 
                                 const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); 
-                                tableHtml += `<div class="schedule-item text-[11px]" draggable="true" data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${locName}', '${level}')" style="background-color: ${bgColor}; border-right: 4px solid ${borderColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p>${cellData.groupName ? `<p class="font-bold text-teal-700">${cellData.groupName}</p>` : ''}<p class="font-semibold text-gray-600">${locName}</p></div>`; 
+                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" draggable="true" data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${locName}', '${level}')" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
                             }
                         });
                         tableHtml += `</div></td>`;
@@ -1476,7 +1667,7 @@
                                 type: 'custom',
                                 name: activity.text,
                                 instructor: instructor.name,
-                                level: ' ',
+                                level: 'نشاط شخصي',
                                 ...activity
                             });
                         }
@@ -1588,7 +1779,7 @@
                                     apps.forEach(app => {
                                         const bgColor = app.color || courseColors[app.baseName] || (app.type === 'custom' ? '#e5e7eb' : '#f3f4f6');
                                         let contentHtml = '';
-                                        if (app.type === 'course') { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')" style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
+                                        if (app.type === 'course') { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')" style="background-color: ${bgColor};"><p class="font-bold">${app.name}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; } 
                                         else { contentHtml = `<div class="schedule-item text-[9px]" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.id}')" style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; }
                                         allHtml += contentHtml;
                                     });
@@ -1714,14 +1905,13 @@
             if (!draggedItem) return;
             
             const targetCell = e.target.closest('.drop-target');
-            if(!targetCell) {
-                draggedItem.style.opacity = '1';
+            draggedItem.style.opacity = '1';
+
+            if (!targetCell) {
                 draggedItem = null;
                 return;
             }
-
             targetCell.classList.remove('drag-over');
-            draggedItem.style.opacity = '1';
 
             const sourceInfo = { 
                 id: draggedItem.dataset.courseId, 
@@ -1731,75 +1921,79 @@
             };
             
             const selectedLevel = dom.levelFilterSelect.value;
-            const course = courses.find(c => c.id === sourceInfo.id) || savedSchedules[selectedLevel]?.[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+            let tempGrid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
+            const sourceCourse = tempGrid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
 
-            if (!course) {
-                showToast("خطأ: لم يتم العثور على بيانات المقرر.", "error");
+            if (!sourceCourse) {
+                showToast("خطأ: لم يتم العثور على بيانات المقرر المصدر.", "error");
                 draggedItem = null;
                 return;
             }
 
             const targetDay = targetCell.dataset.day;
             const targetTime = parseInt(targetCell.dataset.time);
-            const targetLocation = sourceInfo.location; 
+            
+            const targetItemElement = e.target.closest('.schedule-item');
+            
+            // CASE 1: SWAP
+            if (targetItemElement && targetItemElement !== draggedItem) {
+                const targetInfo = {
+                    id: targetItemElement.dataset.courseId,
+                    day: targetItemElement.dataset.day,
+                    time: parseInt(targetItemElement.dataset.time),
+                    location: targetItemElement.dataset.location
+                };
+                const targetCourse = tempGrid[targetInfo.day]?.[targetInfo.time]?.[targetInfo.location];
 
-            if (targetDay === sourceInfo.day && targetTime === sourceInfo.time) {
-                draggedItem = null;
-                return; 
-            }
+                if (!targetCourse) { draggedItem = null; return; }
+                if (sourceCourse.duration !== targetCourse.duration) {
+                    showToast("لا يمكن التبديل بين مقررين بمدة مختلفة.", "error");
+                    draggedItem = null;
+                    return;
+                }
 
-            let tempGrid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            for (let i = 0; i < course.duration; i++) {
-                if (tempGrid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
+                for (let i = 0; i < sourceCourse.duration; i++) {
                     delete tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                    delete tempGrid[targetInfo.day][targetInfo.time + i][targetInfo.location];
                 }
-            }
-
-            let canPlace = true;
-            let reason = '';
-
-            for (let i = 0; i < course.duration; i++) {
-                const currentTime = targetTime + i;
-
-                if (tempGrid[targetDay]?.[currentTime]?.[targetLocation]) {
-                    canPlace = false;
-                    reason = `المكان (${targetLocation}) مشغول في هذا التوقيت.`;
-                    break;
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    tempGrid[targetInfo.day][targetInfo.time + i][targetInfo.location] = { ...sourceCourse, isContinuation: i > 0 };
+                    tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = { ...targetCourse, isContinuation: i > 0 };
                 }
+                showToast("تم تبديل المقررين بنجاح!");
+            } 
+            // CASE 2: MOVE
+            else {
+                const targetLocation = sourceInfo.location; // Keep same location column
+                if (targetDay === sourceInfo.day && targetTime === sourceInfo.time) { draggedItem = null; return; }
 
-                for (const otherLoc in tempGrid[targetDay]?.[currentTime]) {
-                    const cell = tempGrid[targetDay][currentTime][otherLoc];
-                    if (cell) {
-                         if (cell.instructor === course.instructor && cell.baseName !== course.baseName) {
-                             canPlace = false; 
-                             reason = `تعارض محاضر: ${course.instructor}`; 
-                             break;
-                         }
-                         if (course.groupName && cell.groupName === course.groupName && cell.level === course.level) {
-                             canPlace = false;
-                             reason = `تعارض مجموعة: ${course.groupName}`;
-                             break;
-                         }
+                let canPlace = true;
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    if (tempGrid[targetDay]?.[targetTime + i]?.[targetLocation]) {
+                        canPlace = false;
+                        break;
                     }
                 }
-                if (!canPlace) break;
-            }
 
-            if (canPlace) {
-                for (let i = 0; i < course.duration; i++) {
-                    const currentTime = targetTime + i;
-                    if (!tempGrid[targetDay]) tempGrid[targetDay] = {};
-                    if (!tempGrid[targetDay][currentTime]) tempGrid[targetDay][currentTime] = {};
-                    tempGrid[targetDay][currentTime][targetLocation] = { ...course, isContinuation: i > 0 };
+                if (canPlace) {
+                    for (let i = 0; i < sourceCourse.duration; i++) {
+                        delete tempGrid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                    }
+                    for (let i = 0; i < sourceCourse.duration; i++) {
+                        if (!tempGrid[targetDay]) tempGrid[targetDay] = {};
+                        if (!tempGrid[targetDay][targetTime + i]) tempGrid[targetDay][targetTime + i] = {};
+                        tempGrid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
+                    }
+                    showToast("تم نقل المقرر بنجاح!");
+                } else {
+                    showToast(`فشل النقل: الخانة الهدف في "${targetLocation}" مشغولة.`, "error");
+                    draggedItem = null;
+                    displaySchedule(); // Redraw to reset
+                    return;
                 }
-                await saveScheduleToFirebase(selectedLevel, tempGrid);
-                showToast("تم نقل المقرر بنجاح!");
-            } else {
-                showToast(`فشل النقل: ${reason}.`, "error");
-                displaySchedule(); 
             }
             
+            await saveScheduleToFirebase(selectedLevel, tempGrid);
             draggedItem = null;
         }
         function handleExportToFile() {
