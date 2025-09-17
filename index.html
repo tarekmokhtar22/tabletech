@@ -2626,7 +2626,7 @@
                 }
                 for (let i = 0; i < sourceCourse.duration; i++) {
                     if (!grid[targetInfo.day]) grid[targetInfo.day] = {};
-                    if (!grid[targetInfo.day][targetTime + i]) grid[targetInfo.day][targetTime + i] = {};
+                    if (!grid[targetInfo.day][targetInfo.time + i]) grid[targetInfo.day][targetInfo.time + i] = {};
                     grid[targetInfo.day][targetInfo.time + i][newLocation] = { ...sourceCourse, isContinuation: i > 0 };
                 }
 
@@ -3069,4 +3069,3 @@
     </script>
 </body>
 </html>
-
