@@ -2993,69 +2993,80 @@
                 return;
             }
 
-            // Case 1: Activity is tied to a specific level's schedule
-            if (level) {
-                let grid = savedSchedules[level] ? JSON.parse(JSON.stringify(savedSchedules[level])) : {};
-
+            // Comprehensive conflict check
+            // 1. Check against all level schedules (including general_activities)
+            for (const levelName in savedSchedules) {
+                const grid = savedSchedules[levelName];
                 for (let i = 0; i < duration; i++) {
                     if (grid[day]?.[time + i]?.[locationName]) {
-                        showToast('حدث تضارب. المكان مشغول في هذا التوقيت للفرقة المختارة.', 'error');
+                        showToast(`المكان مشغول بنشاط آخر في جدول ${levelName === 'general_activities' ? 'الأنشطة العامة' : `فرقة ${levelName}`}`, 'error');
                         return;
                     }
                 }
+            }
+            // 2. Check against all instructor custom activities
+            for (const instructor of instructors) {
+                for (const activityId in instructor.customActivities || {}) {
+                    const activity = instructor.customActivities[activityId];
+                    if (activity.location === locationName && activity.day === day && (time < activity.time + activity.duration && activity.time < time + duration)) {
+                        showToast(`المكان مشغول بنشاط للعضو: ${instructor.name}`, 'error');
+                        return;
+                    }
+                }
+            }
 
-                const activityData = {
-                    id: `activity_${Date.now()}`,
-                    type: 'custom_activity',
-                    name: activityName,
-                    instructor: instructorName || 'غير محدد',
-                    duration: duration,
-                    baseName: activityName, 
-                    color: color,
-                };
+            const activityData = {
+                id: `activity_${Date.now()}`,
+                type: 'custom_activity',
+                name: activityName,
+                instructor: instructorName || 'غير محدد',
+                duration: duration,
+                baseName: activityName,
+                color: color,
+            };
 
+            if (level) {
+                let grid = savedSchedules[level] ? JSON.parse(JSON.stringify(savedSchedules[level])) : {};
                 for (let i = 0; i < duration; i++) {
                     if (!grid[day]) grid[day] = {};
                     if (!grid[day][time + i]) grid[day][time + i] = {};
                     grid[day][time + i][locationName] = { ...activityData, isContinuation: i > 0 };
                 }
-                
                 await saveScheduleToFirebase(level, grid);
                 modal.modal.style.display = 'none';
                 showToast('تم إضافة النشاط للفرقة بنجاح!');
-            } 
-            // Case 2: General activity (not tied to a level), saved to the instructor
-            else {
-                if (!instructorName) {
-                    showToast('للأنشطة العامة غير المرتبطة بفرقة، يجب تحديد عضو مسؤول.', 'error');
-                    return;
-                }
-                
+            } else if (instructorName) {
                 const instructor = instructors.find(i => i.name === instructorName);
                 if (!instructor) {
-                     showToast('لم يتم العثور على العضو المحدد.', 'error');
-                     return;
+                    showToast('لم يتم العثور على العضو المحدد.', 'error');
+                    return;
                 }
-                
                 const instructorRef = doc(db, instructorsCol.path, instructor.id);
                 const newActivityId = `act_${Date.now()}`;
                 const key = `customActivities.${newActivityId}`;
-                
-                const activityData = {
+                const customActivityData = {
                     text: activityName,
                     duration,
                     location: locationName,
                     day,
                     time
                 };
-
-                await updateDoc(instructorRef, { [key]: activityData });
+                await updateDoc(instructorRef, { [key]: customActivityData });
                 modal.modal.style.display = 'none';
-                showToast("تم حفظ النشاط كنشاط عام للعضو.");
+                showToast("تم حفظ النشاط كنشاط شخصي للعضو.");
+            } else { // No level, no instructor -> Truly general activity
+                let grid = savedSchedules['general_activities'] ? JSON.parse(JSON.stringify(savedSchedules['general_activities'])) : {};
+                for (let i = 0; i < duration; i++) {
+                    if (!grid[day]) grid[day] = {};
+                    if (!grid[day][time + i]) grid[day][time + i] = {};
+                    grid[day][time + i][locationName] = { ...activityData, isContinuation: i > 0 };
+                }
+                await saveScheduleToFirebase('general_activities', grid);
+                modal.modal.style.display = 'none';
+                showToast('تم إضافة النشاط العام بنجاح!');
             }
         }
     </script>
 </body>
 </html>
-
 
