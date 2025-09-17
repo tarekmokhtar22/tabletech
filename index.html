@@ -393,7 +393,8 @@
                     <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
                     <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
                     <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
-                    <button id="export-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-export mr-2"></i>تصدير</button>
+                    <button id="export-report-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-invoice mr-2"></i>تصدير تقرير (HTML)</button>
+                    <button id="save-backup-btn" class="bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-save mr-2"></i>حفظ نسخة احتياطية (JSON)</button>
                     <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
                     <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
                     <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
@@ -775,7 +776,9 @@
             sessionType: document.getElementById('session-type'),
             courseGroupSelect: document.getElementById('course-group-select'),
             generateBtn: document.getElementById('generate-btn'), locationsViewBtn: document.getElementById('locations-view-btn'),
-            filterMembersBtn: document.getElementById('filter-members-btn'), exportBtn: document.getElementById('export-btn'),
+            filterMembersBtn: document.getElementById('filter-members-btn'), 
+            exportReportBtn: document.getElementById('export-report-btn'),
+            saveBackupBtn: document.getElementById('save-backup-btn'),
             loadBtn: document.getElementById('load-btn'), fileLoader: document.getElementById('file-loader'),
             resetBtn: document.getElementById('reset-btn'), printBtn: document.getElementById('print-btn'),
             showConflictsBtn: document.getElementById('show-conflicts-btn'),
@@ -1257,7 +1260,8 @@
                     }
                 });
                 dom.generateBtn.addEventListener('click', generateSchedule);
-                dom.exportBtn.addEventListener('click', handleExportToFile);
+                dom.exportReportBtn.addEventListener('click', handleExportReport);
+                dom.saveBackupBtn.addEventListener('click', handleSaveBackup);
                 dom.loadBtn.addEventListener('click', () => dom.fileLoader.click());
                 dom.fileLoader.addEventListener('change', handleLoadScheduleFromFile);
                 dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل البيانات؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
@@ -2511,36 +2515,30 @@
                     return;
                 }
                 
-                let targetLocation = null;
-                const cellIndex = targetCell.parentElement.cellIndex -1; 
-                
-                let currentCol = 0;
-                for(let i=0; i < TIME_SLOTS_HOURLY.length; i++){
-                    const time = TIME_SLOTS_HOURLY[i];
-                     let itemsInCell = locations.map(loc => grid[targetDay]?.[time]?.[loc.name]).filter(Boolean);
-                     const maxDuration = itemsInCell.length > 0 ? Math.max(...itemsInCell.map(c => c.duration || 1)) : 1;
-                     if(currentCol === cellIndex){
-                        targetLocation = sourceCourse.location;
-                        break;
-                     }
-                     currentCol += maxDuration;
-                     i += (maxDuration -1);
-                }
-                if(!targetLocation) targetLocation = sourceInfo.location;
-
-
-                let canPlace = true;
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    if (grid[targetDay]?.[targetTime + i]?.[targetLocation]) {
-                        canPlace = false;
-                        break;
-                    }
-                }
-
-                if (canPlace) {
+                // Find an available location of the correct type at the target time
+                const availableLocationsForDrop = locations.filter(loc => {
+                    if (loc.type !== sourceCourse.requiredLocationType) return false;
+                    let isFree = true;
                     for (let i = 0; i < sourceCourse.duration; i++) {
-                        delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                        if (grid[targetDay]?.[targetTime + i]?.[loc.name]) {
+                            isFree = false;
+                            break;
+                        }
                     }
+                    return isFree;
+                });
+
+                const targetLocation = availableLocationsForDrop.length > 0 ? availableLocationsForDrop[0].name : null;
+
+
+                if (targetLocation) {
+                    // Perform the move: 1. Delete from old position
+                    for (let i = 0; i < sourceCourse.duration; i++) {
+                        if (grid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
+                            delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                        }
+                    }
+                    // 2. Add to new position
                     for (let i = 0; i < sourceCourse.duration; i++) {
                         if (!grid[targetDay]) grid[targetDay] = {};
                         if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
@@ -2549,7 +2547,7 @@
                     await saveScheduleToFirebase(selectedLevel, grid);
                     showToast("تم نقل المقرر بنجاح!");
                 } else {
-                    showToast(`فشل النقل: المكان مشغول.`, "error");
+                    showToast(`فشل النقل: لا يوجد مكان فارغ من نوع "${sourceCourse.requiredLocationType}" في هذا التوقيت.`, "error");
                 }
             }
             draggedItem = null;
@@ -2646,12 +2644,128 @@
         }
 
 
-        function handleExportToFile() {
+        function handleSaveBackup() {
             const dataToSave = { levels, subjects, instructors, locations, courses, groups, savedSchedules };
             const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {type: "application/json"});
             const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
             a.download = `schedule_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
         }
+
+        function handleExportReport() {
+            let reportHtml = `
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>تقرير الجداول الدراسي</title>
+    <script src="https://cdn.tailwindcss.com"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; padding: 20px; }
+        .schedule-item { padding: 4px; border-radius: 6px; margin-bottom: 4px; color: #1f2937; box-shadow: 0 2px 4px rgba(0,0,0,0.05); line-height: 1.3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        .session-lab { border-left: 4px solid #14b8a6 !important; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; page-break-inside: auto; }
+        tr { page-break-inside: avoid; page-break-after: auto; }
+        thead { display: table-header-group; }
+        th, td { border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 12px; }
+        th { background-color: #f2f2f2; }
+        h1, h2, h3, h4 { text-align: center; margin-top: 40px; margin-bottom: 20px; color: #333; page-break-after: avoid; }
+        .page-break { page-break-before: always; }
+        @media print {
+            #printBtn { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <button id="printBtn" onclick="window.print()" style="position: fixed; top: 10px; left: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 100;">طباعة</button>
+    <h1>تقرير الجداول الدراسي الشامل</h1>
+    <p style="text-align: center; color: #666; margin-bottom: 40px;">تم إنشاؤه بتاريخ: ${new Date().toLocaleString('ar-EG')}</p>
+    `;
+
+            // Section 1: Level Schedules
+            reportHtml += '<div class="page-break"><h2>جداول الفرق الدراسية</h2></div>';
+            levels.forEach(level => {
+                if (savedSchedules[level.name]) {
+                    reportHtml += generateScheduleHTMLForLevel(level.name);
+                }
+            });
+
+            // Section 2: Location Schedules
+            reportHtml += '<div class="page-break"><h2>جداول الأماكن</h2></div>';
+            for (const type in LOCATION_TYPES) {
+                reportHtml += generateAggregatedLocationTableHtml(type, `جداول ${LOCATION_TYPES[type]}`);
+            }
+
+            // Section 3: Member Schedules
+            reportHtml += '<div class="page-break"><h2>جداول الأعضاء</h2></div>';
+            reportHtml += generateInstructorSchedulesHtml('', 'all', 'all');
+
+            reportHtml += '</body></html>';
+
+            const blob = new Blob([reportHtml], { type: "text/html;charset=utf-8" });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `report_schedules_${new Date().toISOString().slice(0,10)}.html`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        function generateScheduleHTMLForLevel(level) {
+            if (!level || !savedSchedules[level]) return '';
+
+            let gridForLevel = savedSchedules[level];
+
+            let tableHtml = `<div class="table-container my-8">
+                                <h3 class="text-2xl font-bold text-center mb-4 text-gray-700">الجدول الدراسي - ${level}</h3>`;
+            tableHtml += '<table class="w-full border-collapse">';
+            tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
+            
+            DAYS.forEach(day => {
+                tableHtml += `<tr class="text-center"><td class="p-2 border border-gray-300 font-semibold align-middle bg-gray-50">${day}</td>`;
+                let time_cursor = 0;
+                while (time_cursor < TIME_SLOTS_HOURLY.length) {
+                    const time = TIME_SLOTS_HOURLY[time_cursor];
+                    let itemsInCell = locations.map(loc => ({ locName: loc.name, data: gridForLevel[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
+                    
+                    itemsInCell.sort((a, b) => {
+                        if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
+                        if (a.data.type !== 'lecture' && b.data.type === 'lecture') return 1;
+                        return 0;
+                    });
+                    
+                    if (itemsInCell.length > 0) {
+                        const maxDuration = Math.max(...itemsInCell.map(item => item.data.duration || 1));
+                        const containerClass = itemsInCell.length > 1 ? 'multi-item-container' : '';
+                        tableHtml += `<td class="p-1 border border-gray-300 align-top" colspan="${maxDuration}">`;
+                        tableHtml += `<div class="${containerClass} flex flex-col gap-1">`;
+                        itemsInCell.forEach(item => { 
+                            const { locName, data: cellData } = item; 
+                            const sessionClass = cellData.type === 'lab' ? 'session-lab' : '';
+                             if (cellData.type === 'custom_activity') {
+                                const bgColor = cellData.color || '#e5e7eb';
+                                tableHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`;
+                            } else {
+                                const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; 
+                                const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); 
+                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
+                            }
+                        });
+                        tableHtml += `</div></td>`;
+                        time_cursor += maxDuration;
+                    } else { 
+                        const isContinuationSlot = locations.some(loc => gridForLevel[day]?.[time]?.[loc.name]?.isContinuation); 
+                        if (!isContinuationSlot) { 
+                            tableHtml += `<td class="p-0 border border-gray-300 align-top h-20"></td>`; 
+                        } 
+                        time_cursor++; 
+                    }
+                }
+                tableHtml += `</tr>`;
+            });
+            tableHtml += '</tbody></table></div>';
+            return tableHtml;
+        }
+
         async function handleLoadScheduleFromFile(e) {
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
@@ -3069,3 +3183,5 @@
     </script>
 </body>
 </html>
+
+
