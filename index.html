@@ -301,7 +301,7 @@
             <header class="text-center mb-8 relative">
                 <button id="logout-btn" class="absolute top-0 left-0 bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600 shadow-lg transition-transform hover:scale-105"><i class="fas fa-sign-out-alt mr-2"></i>تسجيل الخروج</button>
                 <h1 class="text-3xl md:text-4xl font-bold text-gray-700">الجداول الرائع جداً</h1>
-                <p class="text-gray-500 mt-2">مع الحفظ السحابي، الفرق الدراسية، التعديل اليداوي و الي مش يداوي، كشف التضارب و الخناقات، الخ...</p>
+                <p class="text-gray-500 mt-2">مع الحفظ السحابي، الفرق الدراسية، التعديل اليداوي و الي مش يداوي، كشف التضارب و الخناقات, الخ...</p>
             </header>
     
             <div id="loading-indicator" class="text-center p-8"> <i class="fas fa-spinner fa-spin fa-3x text-sky-500"></i> <p class="mt-4 text-gray-600">جاري تحميل البيانات...</p> </div>
@@ -519,7 +519,7 @@
                         <input type="color" id="course-edit-color-input" class="w-full p-1 h-10 border rounded-md">
                     </div>
                     <button id="course-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
-                    <button id="course-edit-modal-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2">حذف من الجدول</button>
+                    <button id="course-edit-modal-delete-btn" class="w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2">حذف المقرر نهائياً</button>
                     <button id="course-edit-modal-split-btn" class="w-full bg-yellow-500 text-white font-bold py-2 rounded-md hover:bg-yellow-600 mt-2 hidden">فصل المقرر</button>
                     <button id="course-edit-modal-merge-btn" class="w-full bg-blue-500 text-white font-bold py-2 rounded-md hover:bg-blue-600 mt-2 hidden">دمج المقرر</button>
     
@@ -1188,6 +1188,9 @@
                 location.reload();
             });
 
+            // Call the function to activate lecture/lab filters
+            setupCourseFilters();
+
             if (userRole === 'admin') {
                 dom.levelForm.addEventListener('submit', handleAddLevel);
                 dom.groupForm.addEventListener('submit', handleAddGroup);
@@ -1196,7 +1199,7 @@
                     const name = dom.subjectForm.querySelector('#subject-name').value.trim();
                     const academicLevel = dom.subjectLevelSelect.value;
                     if (name && academicLevel && !subjects.some(s => s.name === name)) {
-                        await handleAddWithLoading(e, subjectsCol, { name, academicLevel, sectionCounter: 0 }, "تمت إضافة المادة بنجاح!");
+                        await handleAddWithLoading(e, subjectsCol, { name, academicLevel }, "تمت إضافة المادة بنجاح!");
                         dom.subjectForm.querySelector('#subject-name').value = '';
                     } else {
                         showToast('يرجى اختيار فرقة وإدخال اسم مادة غير مكرر.', 'error');
@@ -1235,21 +1238,49 @@
                         const subject = subjects.find(s => s.name === subjectName);
                         const sectionsCount = parseInt(document.getElementById('sections-count').value);
                         
-                        for (let i = 0; i < sectionsCount; i++) {
-                            const courseData = {
-                                baseName: subject.name,
-                                name: (sessionType === 'lab') ? `${subject.name} - سكشن ${subject.sectionCounter + i + 1}` : subject.name,
-                                instructor: instructorName,
-                                type: sessionType,
-                                requiredLocationType: document.getElementById('location-type-select').value,
-                                duration: parseInt(document.getElementById('duration').value),
-                                groupName: sessionType === 'lecture' ? (groupName || null) : null
-                            };
-                            await addDoc(coursesCol, courseData);
-                        }
                         if (sessionType === 'lab') {
-                            const subjectDocRef = doc(db, subjectsCol.path, subject.id);
-                            await updateDoc(subjectDocRef, { sectionCounter: subject.sectionCounter + sectionsCount });
+                            const existingSections = courses
+                                .filter(c => c.baseName === subject.name && c.type === 'lab')
+                                .map(c => {
+                                    const match = c.name.match(/سكشن (\d+)/);
+                                    return match ? parseInt(match[1]) : 0;
+                                })
+                                .filter(num => num > 0)
+                                .sort((a, b) => a - b);
+
+                            let nextSectionNumber = 1;
+                            const usedNumbers = new Set(existingSections);
+
+                            for (let i = 0; i < sectionsCount; i++) {
+                                while (usedNumbers.has(nextSectionNumber)) {
+                                    nextSectionNumber++;
+                                }
+                                
+                                const courseData = {
+                                    baseName: subject.name,
+                                    name: `${subject.name} - سكشن ${nextSectionNumber}`,
+                                    instructor: instructorName,
+                                    type: 'lab',
+                                    requiredLocationType: document.getElementById('location-type-select').value,
+                                    duration: parseInt(document.getElementById('duration').value),
+                                    groupName: null
+                                };
+                                await addDoc(coursesCol, courseData);
+                                usedNumbers.add(nextSectionNumber);
+                            }
+                        } else { // It's a lecture
+                            for (let i = 0; i < sectionsCount; i++) {
+                                const courseData = {
+                                    baseName: subject.name,
+                                    name: subject.name,
+                                    instructor: instructorName,
+                                    type: 'lecture',
+                                    requiredLocationType: document.getElementById('location-type-select').value,
+                                    duration: parseInt(document.getElementById('duration').value),
+                                    groupName: groupName || null
+                                };
+                                await addDoc(coursesCol, courseData);
+                            }
                         }
                         showToast("تمت إضافة المقرر بنجاح!");
                     } catch (error) {
@@ -1317,19 +1348,17 @@
         function renderLocations() { dom.locationsList.innerHTML = locations.map(l => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${l.id}"><p class="font-semibold text-sm">${l.name} (${l.type})</p>${createControlButtons('location', l.id)}</div>`).join(''); }
         function renderCourses(filterType = 'all') {
             const selectedLevel = dom.levelFilterSelect.value;
-            let coursesToDisplay = selectedLevel === 'all' ? courses : courses.filter(c => subjects.some(s => s.name === c.baseName && s.academicLevel === selectedLevel));
+            const coursesToDisplay = selectedLevel === 'all' ? courses : courses.filter(c => subjects.some(s => s.name === c.baseName && s.academicLevel === selectedLevel));
 
-            if (filterType !== 'all') {
-                coursesToDisplay = coursesToDisplay.filter(c => c.type === filterType);
+            const renderList = (courseArray, targetElement, type) => {
+                 if(type === filterType || filterType === 'all') {
+                    targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
+                 }
             }
 
-            const renderList = (courseArray, targetElement) => {
-                 targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
-            }
-
-            renderList(coursesToDisplay.filter(c => c.type === 'lecture'), dom.courseLists.lectures);
-            renderList(coursesToDisplay.filter(c => c.type === 'lab'), dom.courseLists.labs);
-            renderList(coursesToDisplay, dom.courseLists.all);
+            renderList(coursesToDisplay, dom.courseLists.all, 'all');
+            renderList(coursesToDisplay.filter(c => c.type === 'lecture'), dom.courseLists.lectures, 'lecture');
+            renderList(coursesToDisplay.filter(c => c.type === 'lab'), dom.courseLists.labs, 'lab');
         }
 
         function setupCourseFilters() {
@@ -1339,27 +1368,24 @@
             const updateActiveState = (activeBtn) => {
                 for (const key in buttons) {
                     buttons[key].classList.remove('border-sky-500', 'text-sky-600');
-                    buttons[key].classList.add('text-gray-500');
+                    buttons[key].classList.add('text-gray-500', 'border-transparent');
                     lists[key].classList.add('hidden');
                 }
                 activeBtn.classList.add('border-sky-500', 'text-sky-600');
-                activeBtn.classList.remove('text-gray-500');
+                activeBtn.classList.remove('text-gray-500', 'border-transparent');
             };
 
             buttons.all.addEventListener('click', () => {
                 updateActiveState(buttons.all);
                 lists.all.classList.remove('hidden');
-                renderCourses('all');
             });
             buttons.lectures.addEventListener('click', () => {
                 updateActiveState(buttons.lectures);
                 lists.lectures.classList.remove('hidden');
-                renderCourses('lecture');
             });
             buttons.labs.addEventListener('click', () => {
                 updateActiveState(buttons.labs);
                 lists.labs.classList.remove('hidden');
-                renderCourses('lab');
             });
         }
         
@@ -1641,29 +1667,11 @@
             showToast("تم حفظ التعديلات!");
         }
 
-        async function handleDeleteFromSchedule(courseId, day, time, locationName, levelOverride = null) {
-            const selectedLevel = levelOverride || dom.levelFilterSelect.value;
-            if (!selectedLevel || selectedLevel === 'all') return;
-            
-            await showConfirmModal("هل تريد بالتأكيد حذف هذا المقرر من الجدول؟", async () => {
-                let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-                const itemInGrid = grid[day]?.[time]?.[locationName];
-
-                if (!itemInGrid || itemInGrid.id !== courseId) {
-                    showToast("خطأ: لم يتم العثور على المقرر للحذف.", "error");
-                    return; 
-                }
-
-                const duration = itemInGrid.duration || 1;
-                for (let i = 0; i < duration; i++) {
-                    if (grid[day]?.[parseInt(time) + i]?.[locationName]) {
-                        delete grid[day][parseInt(time) + i][locationName];
-                    }
-                }
-                await saveScheduleToFirebase(selectedLevel, grid);
-                showToast("تم الحذف من الجدول.");
-                dom.courseEditModal.style.display = 'none';
-            });
+        async function handleDeleteFromSchedule(courseId) {
+            // This function now permanently deletes the course.
+            // The existing deleteItem function already handles everything.
+            await window.deleteItem('course', courseId);
+            dom.courseEditModal.style.display = 'none';
         }
 
         async function handleSplitCourse(courseId, day, time, locationName, level) {
@@ -3183,6 +3191,3 @@
     </script>
 </body>
 </html>
-
-
-
