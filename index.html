@@ -218,7 +218,7 @@
         #app-section.read-only form,
         #app-section.read-only .control-buttons,
         #app-section.read-only .fa-cog,
-        #app-section.read-only #generate-btn,
+        #app-section.read-only #auto-schedule-btn,
         #app-section.read-only #reset-btn,
         #app-section.read-only #load-btn,
         #app-section.read-only #show-conflicts-btn,
@@ -389,7 +389,6 @@
                 </div>
                 
                 <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
-                    <button id="generate-btn" class="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-sync-alt mr-2"></i>تحديث الجدول</button>
                     <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
                     <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
                     <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
@@ -435,7 +434,13 @@
                             </form>
                         </div>
                          <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-bold mb-4 text-gray-600">قائمة المحاضرات والسكاشن</h2>
+                            <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                                 <h2 class="text-xl font-bold text-gray-600">قائمة المحاضرات والسكاشن</h2>
+                                 <button id="auto-schedule-btn" class="bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 shadow-md transition-transform hover:scale-105 text-sm flex items-center gap-2">
+                                     <i class="fas fa-magic"></i>
+                                     <span>تسكين تلقائي</span>
+                                 </button>
+                             </div>
                              <div class="flex border-b mb-4">
                                 <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
                                 <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
@@ -775,7 +780,8 @@
             instructorSelect: document.getElementById('instructor-select'),
             sessionType: document.getElementById('session-type'),
             courseGroupSelect: document.getElementById('course-group-select'),
-            generateBtn: document.getElementById('generate-btn'), locationsViewBtn: document.getElementById('locations-view-btn'),
+            autoScheduleBtn: document.getElementById('auto-schedule-btn'),
+            locationsViewBtn: document.getElementById('locations-view-btn'),
             filterMembersBtn: document.getElementById('filter-members-btn'), 
             exportReportBtn: document.getElementById('export-report-btn'),
             saveBackupBtn: document.getElementById('save-backup-btn'),
@@ -1290,7 +1296,7 @@
                         toggleButtonLoading(button, false);
                     }
                 });
-                dom.generateBtn.addEventListener('click', generateSchedule);
+                dom.autoScheduleBtn.addEventListener('click', generateSchedule);
                 dom.exportReportBtn.addEventListener('click', handleExportReport);
                 dom.saveBackupBtn.addEventListener('click', handleSaveBackup);
                 dom.loadBtn.addEventListener('click', () => dom.fileLoader.click());
@@ -1338,10 +1344,6 @@
             return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; 
         }
         function renderSubjects() {
-            let deleteButtonHtml = '';
-            if (userRole === 'admin') {
-                deleteButtonHtml = `<button onclick="window.deleteItem('course', '\${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>`;
-            }
             dom.subjectsList.innerHTML = subjects.map(s => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-r-4" data-id="${s.id}" style="border-color: ${s.color || '#cccccc'}"><div class="flex items-center gap-3"><input type="color" value="${s.color || generateHslColor(s.name, true)}" onchange="window.handleSubjectColorChange('${s.id}', this.value)" style="width: 32px; height: 32px;"><div><p class="font-semibold text-sm">${s.name}</p><p class="text-xs text-gray-500">${s.academicLevel}</p></div></div>${createControlButtons('subject', s.id)}</div>`).join('');
         }
         function renderInstructors() { let html = ''; INSTRUCTOR_CATEGORIES.forEach(category => { const members = instructors.filter(i => i.category === category); if (members.length > 0) { html += `<h4 class="text-sm font-bold text-gray-500 mt-3">${category}</h4>`; html += members.map(i => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md" data-id="${i.id}"><p class="font-semibold text-sm">${i.name}</p>${createControlButtons('instructor', i.id)}</div>`).join(''); } }); dom.instructorsList.innerHTML = html; }
@@ -1800,66 +1802,124 @@
         async function saveScheduleToFirebase(level, grid) { if (!level || level === 'all') return; try { const scheduleRef = doc(db, schedulesCol.path, level); await setDoc(scheduleRef, { grid: JSON.stringify(grid) }); } catch (error) { console.error("Error saving schedule:", error); showToast("خطأ في حفظ الجدول", "error"); } }
         
         function generateSchedule() {
-            const selectedLevel = dom.levelFilterSelect.value;
-            if (selectedLevel === 'all') { return showToast("يرجى اختيار فرقة دراسية محددة لتحديث جدولها.", "error"); }
-            scheduleGrid = savedSchedules[selectedLevel] ? JSON.parse(JSON.stringify(savedSchedules[selectedLevel])) : {};
-            if (Object.keys(scheduleGrid).length === 0) { DAYS.forEach(day => { scheduleGrid[day] = {}; TIME_SLOTS_HOURLY.forEach(time => { scheduleGrid[day][time] = {}; locations.forEach(loc => scheduleGrid[day][time][loc.name] = null); }); }); }
-            const placedCourseIds = new Set();
-            for (const day in scheduleGrid) for (const time in scheduleGrid[day]) for (const loc in scheduleGrid[day][time]) { if (scheduleGrid[day][time][loc]) { placedCourseIds.add(scheduleGrid[day][time][loc].id); } }
-            const coursesForLevel = courses.filter(course => subjects.find(s => s.name === course.baseName)?.academicLevel === selectedLevel);
-            const coursesToSchedule = coursesForLevel.filter(c => !placedCourseIds.has(c.id));
-            if (coursesToSchedule.length === 0) { return showToast("لا توجد مواد جديدة لإضافتها للجدول.", "error"); }
-            let instructorSchedule = {}; instructors.forEach(inst => { instructorSchedule[inst.name] = {}; DAYS.forEach(day => { instructorSchedule[inst.name][day] = {}; TIME_SLOTS_HOURLY.forEach(time => instructorSchedule[inst.name][day][time] = null); }); });
-            let lectureBlockedTimes = {}; DAYS.forEach(day => { lectureBlockedTimes[day] = new Set(); });
-            
-            for (const day of DAYS) {
-                for (const time of TIME_SLOTS_HOURLY) {
-                    for (const loc of locations) {
-                        const cellData = scheduleGrid[day]?.[time]?.[loc.name];
-                        if (cellData && cellData.instructor && instructorSchedule[cellData.instructor]) {
-                            instructorSchedule[cellData.instructor][day][time] = cellData.type;
-                            if (cellData.type === 'lecture') {
-                                lectureBlockedTimes[day].add(time);
+            const button = dom.autoScheduleBtn;
+            toggleButtonLoading(button, true);
+
+            try {
+                const selectedLevel = dom.levelFilterSelect.value;
+                if (selectedLevel === 'all') {
+                    showToast("يرجى اختيار فرقة دراسية محددة لتحديث جدولها.", "error");
+                    return;
+                }
+
+                let localScheduleGrid = savedSchedules[selectedLevel] ? JSON.parse(JSON.stringify(savedSchedules[selectedLevel])) : {};
+                
+                if (Object.keys(localScheduleGrid).length === 0) {
+                    DAYS.forEach(day => {
+                        localScheduleGrid[day] = {};
+                        TIME_SLOTS_HOURLY.forEach(time => {
+                            localScheduleGrid[day][time] = {};
+                        });
+                    });
+                }
+
+                const placedCourseIds = new Set();
+                for (const day in localScheduleGrid) {
+                    for (const time in localScheduleGrid[day]) {
+                        for (const loc in localScheduleGrid[day][time]) {
+                            if (localScheduleGrid[day][time][loc]) {
+                                placedCourseIds.add(localScheduleGrid[day][time][loc].id);
                             }
                         }
                     }
                 }
-            }
 
-            let unscheduled = [];
-            const schedulePhase = (courseList) => {
-                courseList.forEach(course => {
-                    let scheduled = false;
+                const coursesForLevel = courses.filter(course => subjects.find(s => s.name === course.baseName)?.academicLevel === selectedLevel);
+                const coursesToSchedule = coursesForLevel.filter(c => !placedCourseIds.has(c.id));
+                
+                if (coursesToSchedule.length === 0) {
+                    showToast("لا توجد مواد جديدة لإضافتها للجدول.", "error");
+                    return;
+                }
+
+                let instructorSchedule = {};
+                instructors.forEach(inst => {
+                    instructorSchedule[inst.name] = {};
+                    DAYS.forEach(day => {
+                        instructorSchedule[inst.name][day] = {};
+                        TIME_SLOTS_HOURLY.forEach(time => instructorSchedule[inst.name][day][time] = null);
+                    });
+                });
+
+                let lectureBlockedTimes = {};
+                DAYS.forEach(day => { lectureBlockedTimes[day] = new Set(); });
+
+                for (const day of DAYS) {
                     for (const time of TIME_SLOTS_HOURLY) {
-                        if (time + course.duration > 18) continue;
-                        for (const day of DAYS) {
-                            const availableLocationsForSlot = locations.filter(l => l.type === course.requiredLocationType);
-                            for (const loc of availableLocationsForSlot) {
-                                if (canPlaceCourse(course, day, time, loc.name, instructorSchedule, lectureBlockedTimes)) { placeCourse(course, day, time, loc.name, instructorSchedule, lectureBlockedTimes); scheduled = true; break; }
+                        for (const locName in localScheduleGrid[day]?.[time] || {}) {
+                            const cellData = localScheduleGrid[day][time][locName];
+                            if (cellData && cellData.instructor && instructorSchedule[cellData.instructor]) {
+                                for(let i = 0; i < cellData.duration; i++) {
+                                    const currentTime = parseInt(time) + i;
+                                    if(instructorSchedule[cellData.instructor][day]) {
+                                       instructorSchedule[cellData.instructor][day][currentTime] = cellData.type;
+                                    }
+                                    if (cellData.type === 'lecture') {
+                                        lectureBlockedTimes[day].add(currentTime);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                let unscheduled = [];
+                const schedulePhase = (courseList) => {
+                    courseList.forEach(course => {
+                        let scheduled = false;
+                        for (const time of TIME_SLOTS_HOURLY) {
+                            if (time + course.duration > 18) continue;
+                            for (const day of DAYS) {
+                                const availableLocationsForSlot = locations.filter(l => l.type === course.requiredLocationType);
+                                for (const loc of availableLocationsForSlot) {
+                                    if (canPlaceCourse(course, day, time, loc.name, instructorSchedule, lectureBlockedTimes, localScheduleGrid)) {
+                                        placeCourse(course, day, time, loc.name, instructorSchedule, lectureBlockedTimes, localScheduleGrid);
+                                        scheduled = true;
+                                        break;
+                                    }
+                                }
+                                if (scheduled) break;
                             }
                             if (scheduled) break;
                         }
-                        if (scheduled) break;
-                    }
-                    if (!scheduled) unscheduled.push(course);
-                });
-            };
-            schedulePhase(coursesToSchedule.filter(c => c.type === 'lecture').sort((a,b)=>b.duration-a.duration));
-            schedulePhase(coursesToSchedule.filter(c => c.type === 'lab').sort((a,b)=>b.duration-a.duration));
-            saveScheduleToFirebase(selectedLevel, scheduleGrid);
-            displaySchedule();
-            displayUnscheduled(unscheduled);
-            showToast("تم تحديث الجدول بنجاح!");
+                        if (!scheduled) unscheduled.push(course);
+                    });
+                };
+
+                schedulePhase(coursesToSchedule.filter(c => c.type === 'lecture').sort((a, b) => b.duration - a.duration));
+                schedulePhase(coursesToSchedule.filter(c => c.type === 'lab').sort((a, b) => b.duration - a.duration));
+                
+                saveScheduleToFirebase(selectedLevel, localScheduleGrid);
+                displayUnscheduled(unscheduled);
+                showToast("تم تحديث الجدول بنجاح!");
+
+            } catch (error) {
+                console.error("Auto-scheduling failed:", error);
+                showToast("حدث خطأ أثناء عملية التسكين.", "error");
+            } finally {
+                toggleButtonLoading(button, false);
+            }
         }
-        function canPlaceCourse(course, day, time, locName, instructorSchedule, lectureBlockedTimes) {
+
+        function canPlaceCourse(course, day, time, locName, instructorSchedule, lectureBlockedTimes, grid) {
             const instructor = instructors.find(i => i.name === course.instructor);
             const courseLevelName = subjects.find(s => s.name === course.baseName)?.academicLevel;
             const courseLevel = levels.find(l => l.name === courseLevelName);
             
             if (course.type === 'lab' && courseLevel && courseLevel.maxConcurrentSections) {
                 let currentConcurrentSections = 0;
-                for (const locationName in scheduleGrid[day]?.[time] || {}) {
-                    const existingCourse = scheduleGrid[day][time][locationName];
+                for (const locationName in grid[day]?.[time] || {}) {
+                    const existingCourse = grid[day][time][locationName];
                     if (existingCourse && existingCourse.type === 'lab') {
                         const existingCourseLevel = subjects.find(s => s.name === existingCourse.baseName)?.academicLevel;
                         if (existingCourseLevel === courseLevelName) {
@@ -1872,21 +1932,39 @@
                 }
             }
 
-
             if (instructor?.availableTimes?.[day]?.length > 0) { for (let i = 0; i < course.duration; i++) { if (!instructor.availableTimes[day].includes(time + i)) return false; } }
+            
             for (let i = 0; i < course.duration; i++) { 
                 const currentTime = time + i; 
                 if (currentTime >= 18) return false; 
                 if (course.type === 'lab' && lectureBlockedTimes[day]?.has(currentTime)) return false; 
-                if (scheduleGrid[day]?.[currentTime]?.[locName]) return false;
+                if (grid[day]?.[currentTime]?.[locName]) return false;
                 const instructorActivity = instructorSchedule[course.instructor]?.[day]?.[currentTime];
                 if (instructorActivity) { if (instructorActivity === 'lecture') return false; if (course.type === 'lecture') return false; if (course.requiredLocationType === 'معمل') return false; }
-                for (const anyLoc of Object.keys(scheduleGrid[day]?.[currentTime] || {})) { const existingCourse = scheduleGrid[day][currentTime][anyLoc]; if (existingCourse && existingCourse.baseName === course.baseName) { return false; } }
+                
+                for (const anyLoc of Object.keys(grid[day]?.[currentTime] || {})) { 
+                    const existingCourse = grid[day][currentTime][anyLoc]; 
+                    if (existingCourse && existingCourse.baseName === course.baseName) { 
+                        return false; 
+                    } 
+                }
             }
             return true;
         }
-        function placeCourse(course, day, time, locName, instructorSchedule, lectureBlockedTimes) {
-            for (let i = 0; i < course.duration; i++) { const currentTime = time + i; scheduleGrid[day][currentTime][locName] = { ...course, isContinuation: i > 0 }; if (instructorSchedule[course.instructor]) { instructorSchedule[course.instructor][day][currentTime] = course.type; } if(course.type === 'lecture' && lectureBlockedTimes[day]) { lectureBlockedTimes[day].add(currentTime); } }
+
+        function placeCourse(course, day, time, locName, instructorSchedule, lectureBlockedTimes, grid) {
+            for (let i = 0; i < course.duration; i++) { 
+                const currentTime = time + i; 
+                if (!grid[day]) grid[day] = {};
+                if (!grid[day][currentTime]) grid[day][currentTime] = {};
+                grid[day][currentTime][locName] = { ...course, isContinuation: i > 0 }; 
+                if (instructorSchedule[course.instructor] && instructorSchedule[course.instructor][day]) { 
+                    instructorSchedule[course.instructor][day][currentTime] = course.type; 
+                } 
+                if(course.type === 'lecture' && lectureBlockedTimes[day]) { 
+                    lectureBlockedTimes[day].add(currentTime); 
+                } 
+            }
         }
         
         async function allowConflict(conflictId) {
@@ -1952,7 +2030,7 @@
                     } else if (itemA.instructor && itemA.instructor !== 'غير محدد' && itemA.instructor === itemB.instructor) {
                          if (itemA.baseName !== itemB.baseName) {
                             conflictReason = `تعارض عضو هيئة تدريس: ${itemA.instructor} لديه مقررين في نفس الوقت.`;
-                            suggestion = `تغيير عضو هيئة التدريس لأحد المقررين، أو تغيير توقيت أحدهما.`;
+                            suggestion = `تغيير عضو هيئة تدريس لأحد المقررين، أو تغيير توقيت أحدهما.`;
                         }
                     } 
 
@@ -3191,3 +3269,5 @@
     </script>
 </body>
 </html>
+
+
