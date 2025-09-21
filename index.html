@@ -511,6 +511,10 @@
                         <select id="course-edit-group-select" class="w-full p-2 border rounded-md"></select>
                     </div>
                     <div>
+                        <label class="font-bold text-sm text-gray-600">نوع المكان</label>
+                        <select id="course-edit-location-type-select" class="w-full p-2 border rounded-md"></select>
+                    </div>
+                    <div>
                         <label class="font-bold text-sm text-gray-600">المكان</label>
                         <select id="course-edit-location-select" class="w-full p-2 border rounded-md"></select>
                     </div>
@@ -545,18 +549,6 @@
                         </select>
                     </div>
                     <button id="location-edit-modal-save-btn" class="w-full bg-green-500 text-white font-bold py-2 rounded-md hover:bg-green-600">حفظ التعديلات</button>
-                </div>
-            </div>
-        </div>
-    
-        <div id="drop-action-modal" class="modal">
-            <div class="modal-content">
-                <h3 class="text-lg font-bold mb-4">اختر الإجراء</h3>
-                <p class="mb-6">ماذا تريد أن تفعل بهذا المقرر؟</p>
-                <div class="flex justify-end gap-4">
-                    <button id="drop-action-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
-                    <button id="drop-action-insert-btn" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">إدراج معًا</button>
-                    <button id="drop-action-swap-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">تبديل</button>
                 </div>
             </div>
         </div>
@@ -809,12 +801,6 @@
                 nameInput: document.getElementById('location-edit-name-input'),
                 typeSelect: document.getElementById('location-edit-type-select'),
                 saveBtn: document.getElementById('location-edit-modal-save-btn'),
-            },
-            dropActionModal: {
-                modal: document.getElementById('drop-action-modal'),
-                cancelBtn: document.getElementById('drop-action-cancel-btn'),
-                swapBtn: document.getElementById('drop-action-swap-btn'),
-                insertBtn: document.getElementById('drop-action-insert-btn'),
             },
             customActivityModal: document.getElementById('custom-activity-modal'),
             closeCustomActivityModalBtn: document.getElementById('close-custom-activity-modal-btn'),
@@ -1314,7 +1300,7 @@
                 detectAndDisplayConflicts();
             });
             
-            [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.dropActionModal.cancelBtn, dom.locationActivityModal.closeBtn].forEach(btn => {
+            [dom.closeEditModalBtn, dom.closeAvailabilityModalBtn, dom.closeCourseEditModalBtn, dom.closeCustomActivityModalBtn, dom.confirmModal.cancelBtn, dom.levelActivityModal.closeBtn, dom.locationEditModal.closeBtn, dom.locationActivityModal.closeBtn].forEach(btn => {
                 if(btn) btn.onclick = () => btn.closest('.modal').style.display = "none";
             });
             window.onclick = (event) => { 
@@ -1324,8 +1310,6 @@
             };
             
             if (userRole === 'admin') {
-                dom.dropActionModal.swapBtn.addEventListener('click', handleSwapAction);
-                dom.dropActionModal.insertBtn.addEventListener('click', handleInsertTogetherAction);
                 dom.sessionType.addEventListener('change', (e) => {
                     const groupSelectContainer = document.getElementById('group-select-container');
                     groupSelectContainer.style.display = e.target.value === 'lecture' ? 'block' : 'none';
@@ -1560,25 +1544,23 @@
             dom.availabilityModal.style.display = "none";
             showToast("تم حفظ التفرغ بنجاح!");
         }
-        function findAvailableLocations(course, day, time, level) {
-            const targetDay = day; const targetTime = parseInt(time); const duration = course.duration; const requiredType = course.requiredLocationType; const grid = savedSchedules[level]; if (!grid) return [];
-            return locations.filter(loc => { if (loc.type !== requiredType) return false; let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; });
-        }
+        
         window.openScheduleItemModal = (courseId, day, time, locationName, levelOverride = null) => {
             if (userRole === 'guest') return;
-            const courseDataFromGrid = savedSchedules[levelOverride || dom.levelFilterSelect.value]?.[day]?.[time]?.[locationName];
+            const level = levelOverride || dom.levelFilterSelect.value;
+            const courseDataFromGrid = savedSchedules[level]?.[day]?.[time]?.[locationName];
             if (!courseDataFromGrid) return;
-
+        
             const course = courses.find(c => c.id === courseId);
             const subject = subjects.find(s => s.name === courseDataFromGrid.baseName);
             if (!subject) return;
-
+        
             dom.courseEditModalTitle.textContent = `تعديل: ${courseDataFromGrid.name}`;
             document.getElementById('course-edit-subject-name-input').value = subject.name;
-            
+        
             const groupContainer = document.getElementById('course-edit-group-select-container');
             groupContainer.style.display = courseDataFromGrid.type === 'lecture' ? 'block' : 'none';
-
+        
             const sectionNameContainer = document.getElementById('course-edit-section-name-container');
             if (courseDataFromGrid.type === 'lab') {
                 document.getElementById('course-edit-section-name-input').value = courseDataFromGrid.name;
@@ -1586,25 +1568,59 @@
             } else {
                 sectionNameContainer.classList.add('hidden');
             }
-
+        
             dom.courseEditInstructorSelect.innerHTML = instructors.map(i => `<option value="${i.name}" ${i.name === courseDataFromGrid.instructor ? 'selected' : ''}>${i.name}</option>`).join('');
-            
+        
             const currentLevel = levelOverride || dom.levelFilterSelect.value;
             const groupSelect = document.getElementById('course-edit-group-select');
             const filteredGroups = groups.filter(g => g.academicLevel === currentLevel);
             groupSelect.innerHTML = '<option value="">(بدون مجموعة)</option>' + filteredGroups.map(g => `<option value="${g.name}" ${g.name === courseDataFromGrid.groupName ? 'selected' : ''}>${g.name}</option>`).join('');
-
-            const locationSelect = document.getElementById('course-edit-location-select');
-            const availableLocations = findAvailableLocations(courseDataFromGrid, day, time, currentLevel);
-            locationSelect.innerHTML = `<option value="${locationName}">${locationName} (الحالي)</option>`;
-            availableLocations.forEach(loc => { if (loc.name !== locationName) { locationSelect.innerHTML += `<option value="${loc.name}">${loc.name}</option>`; } });
+        
             document.getElementById('course-edit-color-input').value = subject.color || generateHslColor(subject.name, true);
+        
+            const locationTypeSelect = document.getElementById('course-edit-location-type-select');
+            locationTypeSelect.innerHTML = ['قاعة', 'معمل', 'مدرج'].map(type => 
+                `<option value="${type}" ${type === courseDataFromGrid.requiredLocationType ? 'selected' : ''}>${type}</option>`
+            ).join('');
+        
+            const locationSelect = document.getElementById('course-edit-location-select');
+            
+            const updateLocationList = (selectedType) => {
+                const grid = savedSchedules[level];
+                const relevantLocations = locations.filter(l => l.type === selectedType);
+                let locationOptionsHtml = '';
+                
+                relevantLocations.forEach(loc => {
+                    let isAvailable = true;
+                    let isCurrent = (loc.name === locationName && selectedType === courseDataFromGrid.requiredLocationType);
+                    for (let i = 0; i < courseDataFromGrid.duration; i++) {
+                        const cellData = grid[day]?.[parseInt(time) + i]?.[loc.name];
+                        if (cellData && cellData.id !== courseId) {
+                            isAvailable = false;
+                            break;
+                        }
+                    }
+                    
+                    const selectedAttr = isCurrent ? 'selected' : '';
+                    if (isCurrent) {
+                        locationOptionsHtml += `<option value="${loc.name}" ${selectedAttr}>${loc.name} (الحالي)</option>`;
+                    } else if (isAvailable) {
+                        locationOptionsHtml += `<option value="${loc.name}" style="color: green;">${loc.name} (متاح)</option>`;
+                    } else {
+                        locationOptionsHtml += `<option value="${loc.name}" style="color: red;" disabled>${loc.name} (مشغول)</option>`;
+                    }
+                });
+                locationSelect.innerHTML = locationOptionsHtml || '<option value="">لا توجد أماكن من هذا النوع</option>';
+            };
+        
+            updateLocationList(courseDataFromGrid.requiredLocationType);
+            locationTypeSelect.onchange = (e) => updateLocationList(e.target.value);
             
             dom.courseEditModalSplitBtn.classList.toggle('hidden', courseDataFromGrid.isSplit || courseDataFromGrid.duration <= 1);
             dom.courseEditModalMergeBtn.classList.toggle('hidden', !courseDataFromGrid.isSplit);
-
+        
             dom.courseEditModal.style.display = 'block';
-
+        
             dom.courseEditModalSaveBtn.onclick = () => handleScheduleItemUpdate({ courseId: courseDataFromGrid.id, subjectId: subject.id, originalSubjectName: subject.name, originalLocation: locationName, day: day, time: time, level: currentLevel });
             dom.courseEditModalDeleteBtn.onclick = () => handleDeleteFromSchedule(courseId, day, time, locationName, currentLevel);
             dom.courseEditModalSplitBtn.onclick = () => handleSplitCourse(courseId, day, time, locationName, currentLevel);
@@ -1614,14 +1630,24 @@
         async function handleScheduleItemUpdate(context) {
             const { courseId, subjectId, originalSubjectName, originalLocation, day, time, level } = context; 
             const newSubjectName = document.getElementById('course-edit-subject-name-input').value.trim();
-            if (newSubjectName && newSubjectName !== originalSubjectName) { await handleUpdateItem('subject', subjectId, newSubjectName); dom.courseEditModal.style.display = 'none'; return; }
+            if (newSubjectName && newSubjectName !== originalSubjectName) { 
+                await handleUpdateItem('subject', subjectId, newSubjectName); 
+                dom.courseEditModal.style.display = 'none'; 
+                return; 
+            }
             
             const course = courses.find(c => c.id === courseId);
             const newSectionName = document.getElementById('course-edit-section-name-input').value.trim();
             const newInstructor = dom.courseEditInstructorSelect.value;
             const newGroupName = document.getElementById('course-edit-group-select').value;
+            const newLocationType = document.getElementById('course-edit-location-type-select').value;
             const newLocation = document.getElementById('course-edit-location-select').value;
             const newColor = document.getElementById('course-edit-color-input').value;
+
+            if (!newLocation) {
+                showToast("يرجى اختيار مكان صالح.", "error");
+                return;
+            }
 
             const batch = writeBatch(db);
             const subjectRef = doc(db, subjectsCol.path, subjectId);
@@ -1631,6 +1657,7 @@
                 const courseRef = doc(db, coursesCol.path, courseId);
                 let courseUpdates = {};
                 if (newInstructor !== course.instructor) courseUpdates.instructor = newInstructor;
+                if (newLocationType !== course.requiredLocationType) courseUpdates.requiredLocationType = newLocationType;
                 if (course.type === 'lecture') {
                     courseUpdates.groupName = newGroupName || null;
                 }
@@ -1645,7 +1672,11 @@
             const courseDataInGrid = grid[day]?.[parseInt(time)]?.[originalLocation];
             
             if (courseDataInGrid) {
-                let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
+                let updatedCourseData = { 
+                    ...courseDataInGrid, 
+                    instructor: newInstructor,
+                    requiredLocationType: newLocationType
+                };
                 if (courseDataInGrid.type === 'lecture') {
                     updatedCourseData.groupName = newGroupName || null;
                 }
@@ -2462,195 +2493,116 @@
             draggedItem = null;
         }
 
-
         async function handleDrop(e) {
             e.preventDefault();
             if (!draggedItem) return;
-
+        
             const targetCell = e.target.closest('.drop-target');
             draggedItem.style.opacity = '1';
-
+        
             if (!targetCell) {
                 draggedItem = null;
                 return;
             }
             targetCell.classList.remove('drag-over');
-
+        
             const sourceInfo = {
                 id: draggedItem.dataset.courseId,
                 day: draggedItem.dataset.day,
                 time: parseInt(draggedItem.dataset.time),
                 location: draggedItem.dataset.location
             };
-
+        
             const targetDay = targetCell.dataset.day;
             const targetTime = parseInt(targetCell.dataset.time);
             const targetItemElement = e.target.closest('.schedule-item');
-            
-            // Case 1: Drop onto another item
+        
             if (targetItemElement && targetItemElement !== draggedItem) {
-                 const targetInfo = {
-                    id: targetItemElement.dataset.courseId,
-                    day: targetItemElement.dataset.day,
-                    time: parseInt(targetItemElement.dataset.time),
-                    location: targetItemElement.dataset.location
-                };
-                
-                dropContext = { sourceInfo, targetInfo };
-
-                const selectedLevel = dom.levelFilterSelect.value;
-                const grid = savedSchedules[selectedLevel];
-                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-                if(sourceCourse) {
-                    const availableSlot = findEmptySlotAtTime(targetDay, targetTime, sourceCourse, grid);
-                    dom.dropActionModal.insertBtn.disabled = !availableSlot;
-                } else {
-                     dom.dropActionModal.insertBtn.disabled = true;
-                }
-
-                dom.dropActionModal.modal.style.display = 'block';
-
-            } 
-            // Case 2: Drop into an empty slot (move)
-            else {
-                const selectedLevel = dom.levelFilterSelect.value;
-                let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-
-                if (!sourceCourse) {
-                    showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
-                    draggedItem = null;
-                    return;
-                }
-                
-                // Find an available location of the correct type at the target time
-                const availableLocationsForDrop = locations.filter(loc => {
-                    if (loc.type !== sourceCourse.requiredLocationType) return false;
-                    let isFree = true;
+                showToast("المكان مشغول بالفعل. لا يمكن النقل المباشر.", "error");
+                draggedItem = null;
+                return;
+            }
+        
+            const selectedLevel = dom.levelFilterSelect.value;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
+            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
+        
+            if (!sourceCourse) {
+                showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
+                draggedItem = null;
+                return;
+            }
+        
+            let instructorConflict = false;
+            const instructorName = sourceCourse.instructor;
+            if (instructorName && instructorName !== 'غير محدد') {
+                for (const levelName in savedSchedules) {
+                    const currentGrid = savedSchedules[levelName];
                     for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (grid[targetDay]?.[targetTime + i]?.[loc.name]) {
-                            isFree = false;
+                        const checkTime = targetTime + i;
+                        for (const locName in currentGrid[targetDay]?.[checkTime] || {}) {
+                            const existingItem = currentGrid[targetDay][checkTime][locName];
+                            if (existingItem.instructor === instructorName && existingItem.id !== sourceCourse.id) {
+                                instructorConflict = true;
+                                break;
+                            }
+                        }
+                        if (instructorConflict) break;
+                    }
+                    if (instructorConflict) break;
+                }
+                const instructor = instructors.find(i => i.name === instructorName);
+                if (!instructorConflict && instructor && instructor.customActivities) {
+                    for (const activityId in instructor.customActivities) {
+                        const activity = instructor.customActivities[activityId];
+                        if (activity.day === targetDay && (targetTime < activity.time + activity.duration && activity.time < targetTime + sourceCourse.duration)) {
+                            instructorConflict = true;
                             break;
                         }
                     }
-                    return isFree;
-                });
-
-                const targetLocation = availableLocationsForDrop.length > 0 ? availableLocationsForDrop[0].name : null;
-
-
-                if (targetLocation) {
-                    // Perform the move: 1. Delete from old position
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (grid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
-                            delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                        }
-                    }
-                    // 2. Add to new position
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (!grid[targetDay]) grid[targetDay] = {};
-                        if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
-                        grid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
-                    }
-                    await saveScheduleToFirebase(selectedLevel, grid);
-                    showToast("تم نقل المقرر بنجاح!");
-                } else {
-                    showToast(`فشل النقل: لا يوجد مكان فارغ من نوع "${sourceCourse.requiredLocationType}" في هذا التوقيت.`, "error");
                 }
             }
-            draggedItem = null;
-        }
-
-        function findEmptySlotAtTime(day, time, course, grid) {
-            const suitableLocations = locations.filter(l => l.type === course.requiredLocationType);
-            for (const loc of suitableLocations) {
+        
+            if (instructorConflict) {
+                showToast(`فشل النقل: يوجد تعارض في جدول العضو "${instructorName}" في هذا التوقيت.`, "error");
+                draggedItem = null;
+                return;
+            }
+        
+            const availableLocationsForDrop = locations.filter(loc => {
+                if (loc.type !== sourceCourse.requiredLocationType) return false;
                 let isFree = true;
-                for (let i = 0; i < course.duration; i++) {
-                    if (grid[day]?.[time + i]?.[loc.name]) {
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    const cellData = grid[targetDay]?.[targetTime + i]?.[loc.name];
+                    if (cellData && cellData.id !== sourceCourse.id) {
                         isFree = false;
                         break;
                     }
                 }
-                if (isFree) return loc.name;
-            }
-            return null;
-        }
-
-        async function handleSwapAction() {
-            if (!dropContext) return;
-            const { sourceInfo, targetInfo } = dropContext;
-            const selectedLevel = dom.levelFilterSelect.value;
-            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-            const targetCourse = grid[targetInfo.day]?.[targetInfo.time]?.[targetInfo.location];
-
-            if (!sourceCourse || !targetCourse) {
-                showToast("خطأ: لم يتم العثور على أحد المقررين.", "error");
-                closeDropModal();
-                return;
-            }
-
-            if (sourceCourse.duration !== targetCourse.duration) {
-                showToast("لا يمكن تبديل مقررين بمدة مختلفة.", "error");
-                closeDropModal();
-                return;
-            }
-
-            for (let i = 0; i < sourceCourse.duration; i++) {
-                delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                delete grid[targetInfo.day][targetInfo.time + i][targetInfo.location];
-            }
-            for (let i = 0; i < sourceCourse.duration; i++) {
-                grid[targetInfo.day][targetInfo.time + i][targetInfo.location] = { ...sourceCourse, isContinuation: i > 0 };
-                grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = { ...targetCourse, isContinuation: i > 0 };
-            }
-
-            await saveScheduleToFirebase(selectedLevel, grid);
-            showToast("تم التبديل بنجاح!");
-            closeDropModal();
-        }
-
-        async function handleInsertTogetherAction() {
-            if (!dropContext) return;
-            const { sourceInfo, targetInfo } = dropContext;
-            const selectedLevel = dom.levelFilterSelect.value;
-            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-            if (!sourceCourse) {
-                showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
-                closeDropModal();
-                return;
-            }
-            
-            const newLocation = findEmptySlotAtTime(targetInfo.day, targetInfo.time, sourceCourse, grid);
-
-            if (newLocation) {
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                }
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    if (!grid[targetInfo.day]) grid[targetInfo.day] = {};
-                    if (!grid[targetInfo.day][targetInfo.time + i]) grid[targetInfo.day][targetInfo.time + i] = {};
-                    grid[targetInfo.day][targetInfo.time + i][newLocation] = { ...sourceCourse, isContinuation: i > 0 };
-                }
-
-                await saveScheduleToFirebase(selectedLevel, grid);
-                showToast("تم إدراج المقررين معًا بنجاح.");
-            } else {
-                showToast("لا يوجد مكان فارغ ومناسب في هذا التوقيت.", "error");
-            }
-            
-            closeDropModal();
-        }
+                return isFree;
+            });
         
-        function closeDropModal() {
-            dom.dropActionModal.modal.style.display = 'none';
-            dropContext = null;
-            displaySchedule();
+            const targetLocation = availableLocationsForDrop.length > 0 ? availableLocationsForDrop[0].name : null;
+        
+            if (targetLocation) {
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    if (grid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
+                        delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
+                    }
+                }
+                for (let i = 0; i < sourceCourse.duration; i++) {
+                    if (!grid[targetDay]) grid[targetDay] = {};
+                    if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
+                    grid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
+                }
+                await saveScheduleToFirebase(selectedLevel, grid);
+                showToast("تم نقل المقرر بنجاح!");
+            } else {
+                showToast(`فشل النقل: لا يوجد مكان فارغ من نوع "${sourceCourse.requiredLocationType}" في هذا التوقيت.`, "error");
+            }
+        
+            draggedItem = null;
         }
-
 
         function handleSaveBackup() {
             const dataToSave = { levels, subjects, instructors, locations, courses, groups, savedSchedules };
