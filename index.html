@@ -182,6 +182,10 @@
         .conflict-item-visual { border-color: #ef4444 !important; animation: pulse-red 2s infinite; }
         .conflict-badge { position: absolute; top: 2px; left: 2px; background-color: #ef4444; color: white; font-size: 10px; padding: 1px 5px; border-radius: 99px; font-weight: bold; z-index: 10; display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; }
         @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 50% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0); } }
+        /* New Style for Section Conflicts */
+        .section-conflict { border: 3px solid #dc2626 !important; animation: pulse-red 1.5s infinite; position: relative; }
+        .section-conflict::after { content: "⚠️ تضارب"; position: absolute; top: -10px; right: -5px; background: #dc2626; color: white; font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: bold; }
+
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); animation: fadeIn 0.3s; }
         .modal-content { background-color: #fefefe; margin: 10% auto; padding: 24px; border: 1px solid #888; width: 90%; max-width: 500px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.3); animation: slideIn 0.3s; }
         .close-button { color: #aaa; float: left; font-size: 28px; font-weight: bold; cursor: pointer; }
@@ -720,7 +724,7 @@
 			let isLoginSuccessful = false;
 
 			if (isGuestMode) {
-				if (enteredPassword === '2392') {
+				if (enteredPassword === '0000') {
                     userRole = 'guest';
 					isLoginSuccessful = true;
 				} else {
@@ -728,7 +732,7 @@
 				}
 			} else {
 				const enteredUsername = usernameInput.value;
-				if (enteredUsername.toLowerCase() === 'noha' && enteredPassword === 'BossX@786') {
+				if (enteredUsername.toLowerCase() === 'tarek' && enteredPassword === '150150') {
                     userRole = 'admin';
 					isLoginSuccessful = true;
 				} else {
@@ -1427,7 +1431,10 @@
             dom.courseNameSelect.innerHTML = '<option value="">اختر المادة...</option>' + filteredSubjects.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
         }
         function updateInstructorSelector() {
-            let instructorsToShow = instructors;
+            let instructorsToShow = [...instructors];
+            // Sort instructors alphabetically
+            instructorsToShow.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+
             let html = '<option value="">اختر العضو...</option>';
             INSTRUCTOR_CATEGORIES.forEach(category => { 
                 const members = instructorsToShow.filter(i => i.category === category); 
@@ -1563,8 +1570,12 @@
             showToast("تم حفظ التفرغ بنجاح!");
         }
         function findAvailableLocations(course, day, time, level) {
-            const targetDay = day; const targetTime = parseInt(time); const duration = course.duration; const requiredType = course.requiredLocationType; const grid = savedSchedules[level]; if (!grid) return [];
-            return locations.filter(loc => { if (loc.type !== requiredType) return false; let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; });
+            // Updated to be more flexible, but this function is mainly used for suggestion.
+            // For the edit modal, we will show ALL locations.
+            const targetDay = day; const targetTime = parseInt(time); const duration = course.duration; const grid = savedSchedules[level]; if (!grid) return [];
+            return locations.filter(loc => { 
+                let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; 
+            });
         }
         window.openScheduleItemModal = (courseId, day, time, locationName, levelOverride = null) => {
             if (userRole === 'guest') return;
@@ -1589,7 +1600,9 @@
                 sectionNameContainer.classList.add('hidden');
             }
 
-            dom.courseEditInstructorSelect.innerHTML = instructors.map(i => `<option value="${i.name}" ${i.name === courseDataFromGrid.instructor ? 'selected' : ''}>${i.name}</option>`).join('');
+            // Alphabetically sort instructors
+            const sortedInstructors = [...instructors].sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            dom.courseEditInstructorSelect.innerHTML = sortedInstructors.map(i => `<option value="${i.name}" ${i.name === courseDataFromGrid.instructor ? 'selected' : ''}>${i.name}</option>`).join('');
             
             const currentLevel = levelOverride || dom.levelFilterSelect.value;
             const groupSelect = document.getElementById('course-edit-group-select');
@@ -1597,9 +1610,21 @@
             groupSelect.innerHTML = '<option value="">(بدون مجموعة)</option>' + filteredGroups.map(g => `<option value="${g.name}" ${g.name === courseDataFromGrid.groupName ? 'selected' : ''}>${g.name}</option>`).join('');
 
             const locationSelect = document.getElementById('course-edit-location-select');
-            const availableLocations = findAvailableLocations(courseDataFromGrid, day, time, currentLevel);
-            locationSelect.innerHTML = `<option value="${locationName}">${locationName} (الحالي)</option>`;
-            availableLocations.forEach(loc => { if (loc.name !== locationName) { locationSelect.innerHTML += `<option value="${loc.name}">${loc.name}</option>`; } });
+            
+            // Show ALL locations, but group them by type to be organized
+            let locationOptions = '';
+            for(const type in LOCATION_TYPES) {
+                locationOptions += `<optgroup label="${LOCATION_TYPES[type]}">`;
+                const locationsOfType = locations.filter(l => l.type === type);
+                locationsOfType.forEach(loc => {
+                     // Check if it's the current location or available
+                     // We allow selection even if potentially busy, the system will check later or overwrite
+                     locationOptions += `<option value="${loc.name}" ${loc.name === locationName ? 'selected' : ''}>${loc.name}</option>`;
+                });
+                locationOptions += `</optgroup>`;
+            }
+            locationSelect.innerHTML = locationOptions;
+
             document.getElementById('course-edit-color-input').value = subject.color || generateHslColor(subject.name, true);
             
             dom.courseEditModalSplitBtn.classList.toggle('hidden', courseDataFromGrid.isSplit || courseDataFromGrid.duration <= 1);
@@ -1628,6 +1653,10 @@
             const batch = writeBatch(db);
             const subjectRef = doc(db, subjectsCol.path, subjectId);
             batch.update(subjectRef, { color: newColor });
+            
+            // Find the location object to get its type
+            const locationObj = locations.find(l => l.name === newLocation);
+            const newLocationType = locationObj ? locationObj.type : 'قاعة';
 
             if(course) {
                 const courseRef = doc(db, coursesCol.path, courseId);
@@ -1637,6 +1666,9 @@
                     courseUpdates.groupName = newGroupName || null;
                 }
                 if (course.type === 'lab' && newSectionName && newSectionName !== course.name) courseUpdates.name = newSectionName;
+                // Update required type if location changed
+                courseUpdates.requiredLocationType = newLocationType;
+
                 if (Object.keys(courseUpdates).length > 0) {
                     batch.update(courseRef, courseUpdates);
                 }
@@ -1648,6 +1680,8 @@
             
             if (courseDataInGrid) {
                 let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
+                updatedCourseData.requiredLocationType = newLocationType; // Sync type in grid
+
                 if (courseDataInGrid.type === 'lecture') {
                     updatedCourseData.groupName = newGroupName || null;
                 }
@@ -1655,8 +1689,21 @@
                     updatedCourseData.name = newSectionName;
                 }
 
-
                 if (newLocation !== originalLocation) {
+                    // Check if new location is free
+                    let isFree = true;
+                    for (let i = 0; i < courseDataInGrid.duration; i++) {
+                         if (grid[day]?.[parseInt(time) + i]?.[newLocation]) {
+                             isFree = false; break;
+                         }
+                    }
+
+                    if (!isFree) {
+                        showToast("المكان الجديد مشغول! قم بإفراغه أولاً.", "error");
+                        // We updated metadata (color/instructor) but not the grid move
+                        return;
+                    }
+
                     for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { delete grid[day][parseInt(time) + i][originalLocation]; } }
                     for (let i = 0; i < courseDataInGrid.duration; i++) { if (!grid[day]) grid[day] = {}; if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {}; grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 }; }
                 } else {
@@ -1667,6 +1714,9 @@
             
             dom.courseEditModal.style.display = 'none';
             showToast("تم حفظ التعديلات!");
+            
+            // Refresh custom views if open
+            if(activeCustomView === 'locations') displayLocationSchedules();
         }
 
         async function handleDeleteFromSchedule(courseId) {
@@ -2086,6 +2136,29 @@
             const level = dom.levelFilterSelect.value;
             if (!level) return;
             const targetElement = isCustomView ? dom.customScheduleOutput : dom.scheduleOutput;
+            
+            // --- SECTION CONFLICT DETECTION (VISUAL ONLY) ---
+            const sectionConflictMap = new Map(); // Key: "Day-Time-SectionName", Value: count
+            if(scheduleGrid) {
+                DAYS.forEach(day => {
+                    TIME_SLOTS_HOURLY.forEach(time => {
+                         const itemsInSlot = [];
+                         for(const loc in scheduleGrid[day]?.[time] || {}) {
+                            const item = scheduleGrid[day][time][loc];
+                            if(item && !item.isContinuation) itemsInSlot.push(item);
+                         }
+                         
+                         itemsInSlot.forEach(item => {
+                            if(item.type === 'lab') { // Check labs/sections
+                                const key = `${day}-${time}-${item.name}`; // e.g., "Sunday-9-Section 1"
+                                sectionConflictMap.set(key, (sectionConflictMap.get(key) || 0) + 1);
+                            }
+                         });
+                    });
+                });
+            }
+
+
             let tableHtml = `<div class="table-container">
                                 <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
                                 <h2 class="text-2xl font-bold text-center mb-4 text-gray-700">${level === 'all' ? 'الجدول الدراسي العام' : `الجدول الدراسي - ${level}`}</h2>`;
@@ -2117,6 +2190,16 @@
                         itemsInCell.forEach(item => { 
                             const { locName, data: cellData } = item; 
                             const sessionClass = cellData.type === 'lab' ? 'session-lab' : '';
+                            
+                            // Check for visual conflict
+                            let conflictClass = '';
+                            if (cellData.type === 'lab') {
+                                const conflictKey = `${day}-${time}-${cellData.name}`;
+                                if ((sectionConflictMap.get(conflictKey) || 0) > 1) {
+                                    conflictClass = 'section-conflict';
+                                }
+                            }
+
                             if (cellData.type === 'custom_activity') {
                                 const bgColor = cellData.color || '#e5e7eb';
                                 const clickHandler = canEdit ? `window.openLevelActivityModal('${day}', ${time}, '${locName}', '${cellData.id}')` : '';
@@ -2124,7 +2207,7 @@
                             } else {
                                 const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; 
                                 const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); 
-                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" ${draggableAttr} data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="${editClickHandler(cellData, locName)}" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
+                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass} ${conflictClass}" ${draggableAttr} data-course-id="${cellData.id}" data-day="${day}" data-time="${time}" data-location="${locName}" onclick="${editClickHandler(cellData, locName)}" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
                             }
                         });
                         tableHtml += `</div></td>`;
@@ -2230,6 +2313,7 @@
                 allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
                 
                 const currentLocGrid = locationGrid[item.name];
+                const canEdit = userRole === 'admin';
 
                 DAYS.forEach(day => {
                     allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
@@ -2246,7 +2330,18 @@
                             apps.forEach(cellData => {
                                 const contentHtml = `<p class="font-bold">${cellData.name || cellData.text}</p><p>${cellData.instructor}</p><p class="text-xs text-gray-500">${cellData.level}</p>`;
                                 const bgColor = cellData.color || courseColors[cellData.baseName] || '#e5e7eb';
-                                allHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor};">${contentHtml}</div>`;
+                                // Enable editing from Location View
+                                const clickHandler = canEdit 
+                                    ? (cellData.type === 'custom' 
+                                        ? `onclick="window.openCustomActivityModal('${instructors.find(i=>i.name===cellData.instructor)?.id}', '${day}', ${time}, '${cellData.id}')"`
+                                        : (cellData.type === 'custom_activity'
+                                            ? `onclick="window.openLevelActivityModal('${day}', ${time}, '${item.name}', '${cellData.id}', '${cellData.level}')"`
+                                            : `onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')"`
+                                          )
+                                    )
+                                    : '';
+                                
+                                allHtml += `<div class="schedule-item text-[11px]" ${clickHandler} style="background-color: ${bgColor};">${contentHtml}</div>`;
                             });
                             
                             allHtml += '</div></td>';
@@ -2278,6 +2373,9 @@
 
         function generateInstructorSchedulesHtml(searchQuery = '', filterCategory = 'all', filterLevel = 'all') {
             let filteredInstructors = [...instructors]; 
+            // Sort Alphabetically
+            filteredInstructors.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            
             if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } 
             if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
             if (filterLevel !== 'all') {
@@ -2971,7 +3069,11 @@
             return { courses: assignedCourses, totalHours };
         }
         function generateAdvancedInstructorsHTML(searchQuery = '', filterCategory = 'all') {
-            let filteredInstructors = instructors; if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
+            let filteredInstructors = instructors; 
+            // Sort Alphabetically here too
+            filteredInstructors.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+
+            if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
             const canEdit = userRole === 'admin';
             const addInstructorForm = canEdit ? `<div class="md:col-span-2"> <form id="adv-instructor-form" class="p-4 border rounded-lg bg-gray-50 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end"> <div class="sm:col-span-2 grid grid-cols-2 gap-4"> <div> <label class="font-bold text-sm">اسم العضو الجديد</label> <input type="text" id="adv-instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md mt-1" required> </div> <div> <label class="font-bold text-sm">الفئة</label> <select id="adv-instructor-category-select" class="w-full p-2 border rounded-md mt-1"> ${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}">${cat}</option>`).join('')} </select> </div> </div> <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 h-10 flex items-center justify-center">إضافة عضو</button> </form> </div>` : '<div class="md:col-span-2"></div>';
 
@@ -3017,9 +3119,9 @@
             document.body.removeChild(textArea);
         }
 
-        window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null) => {
+        window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null, levelOverride = null) => {
             if (userRole === 'guest') return;
-            const level = dom.levelFilterSelect.value;
+            const level = levelOverride || dom.levelFilterSelect.value;
             if (!level || level === 'all') {
                 showToast('يرجى تحديد فرقة أولاً.', 'error');
                 return;
@@ -3269,5 +3371,3 @@
     </script>
 </body>
 </html>
-
-
