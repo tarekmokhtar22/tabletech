@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>الجداول الرائع جداً (نسخة مطورة)</title>
+    <title>الجداول الرائع جداً (نسخة الأقسام المطورة)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -218,6 +218,7 @@
         table, .schedule-item { user-select: text; -webkit-user-select: text; -moz-user-select: text; -ms-user-select: text; }
 
         /* Read-only styles for guest mode */
+        #app-section.read-only #departments-controls,
         #app-section.read-only #top-controls,
         #app-section.read-only form,
         #app-section.read-only .control-buttons,
@@ -249,7 +250,7 @@
             .schedule-item { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             h2, h3 { text-align: center; margin-bottom: 20px; }
             #members-view-sidebar { display: none; }
-            .conflict-badge, .control-buttons, .print-hidden, footer, #top-controls, .copy-btn { display: none; }
+            .conflict-badge, .control-buttons, .print-hidden, footer, #top-controls, .copy-btn, #departments-panel { display: none; }
         }
     </style>
 </head>
@@ -311,159 +312,191 @@
             <div id="loading-indicator" class="text-center p-8"> <i class="fas fa-spinner fa-spin fa-3x text-sky-500"></i> <p class="mt-4 text-gray-600">جاري تحميل البيانات...</p> </div>
     
             <div id="main-content" class="hidden">
-                <!-- New Top Controls Panel -->
-                <div id="top-controls" class="bg-white p-4 rounded-xl shadow-md mb-8 print-hidden">
-                    <details class="group">
-                        <summary class="flex justify-between items-center font-medium cursor-pointer">
-                            <h2 class="text-xl font-bold text-gray-600">إدارة البيانات الأساسية والإعدادات</h2>
-                            <span class="transition-transform duration-300 group-open:rotate-180">
-                                <i class="fas fa-chevron-down"></i>
-                            </span>
-                        </summary>
-                        <div class="text-neutral-600 mt-4 pt-4 border-t">
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                
-                                <div class="space-y-4 bg-gray-50 p-4 rounded-lg border">
-                                    <div>
-                                        <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
-                                            <span>1. الفرق الدراسية</span>
-                                            <a href="#" onclick="window.showAdvancedLevelsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
-                                        </h3>
-                                        <form id="level-form" class="flex gap-2 mt-2">
-                                            <input type="text" id="level-name" placeholder="اسم الفرقة" class="w-full p-2 border rounded-md" required>
-                                            <button type="submit" class="bg-green-500 text-white font-bold p-2 px-4 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                        </form>
-                                        <div id="levels-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
-                                        <form id="group-form" class="space-y-2 mt-2">
-                                            <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
-                                            <div class="flex gap-2">
-                                                <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
-                                                <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                            </div>
-                                        </form>
-                                        <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                                    </div>
-                                </div>
-    
-                                <div class="bg-gray-50 p-4 rounded-lg border">
-                                    <h3 class="text-lg font-bold text-gray-600">3. المواد الدراسية</h3>
-                                    <form id="subject-form" class="space-y-2 mt-2">
-                                        <select id="subject-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
-                                        <div class="flex gap-2">
-                                            <input type="text" id="subject-name" placeholder="اسم المادة" class="w-full p-2 border rounded-md" required>
-                                            <button type="submit" class="bg-purple-500 text-white font-bold p-2 px-4 rounded-md hover:bg-purple-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
-                                        </div>
-                                    </form>
-                                    <div id="subjects-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
-                                </div>
-    
-                                <div class="bg-gray-50 p-4 rounded-lg border">
-                                     <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
-                                        <span>4. الأعضاء</span>
-                                        <a href="#" onclick="window.showAdvancedInstructorsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
-                                    </h3>
-                                    <form id="instructor-form" class="space-y-2 mt-2">
-                                        <input type="text" id="instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md" required>
-                                        <select id="instructor-category-select" class="w-full p-2 border rounded-md">
-                                            <option value="عضو هيئة تدريس">عضو هيئة تدريس</option> <option value="معاونون">معاونون</option> <option value="منتدبون">منتدبون</option> <option value="اعضاء من الخارج">اعضاء من الخارج</option>
-                                        </select>
-                                        <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 flex items-center justify-center">إضافة عضو</button>
-                                    </form>
-                                    <div id="instructors-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
-                                </div>
-                                
-                                <div class="bg-gray-50 p-4 rounded-lg border">
-                                    <h3 class="text-lg font-bold text-gray-600">5. الأماكن</h3>
-                                    <form id="location-form" class="space-y-2 mt-2">
-                                        <input type="text" id="location-name" placeholder="اسم المكان" class="w-full p-2 border rounded-md" required>
-                                        <select id="location-type" class="w-full p-2 border rounded-md">
-                                            <option value="قاعة">قاعة</option> <option value="معمل">معمل</option> <option value="مدرج">مدرج</option>
-                                        </select>
-                                        <button type="submit" class="w-full bg-cyan-500 text-white font-bold py-2 rounded-md hover:bg-cyan-600 flex items-center justify-center">إضافة المكان</button>
-                                    </form>
-                                    <div id="locations-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
-                                </div>
-    
+                
+                <!-- NEW: Departments Panel -->
+                <div id="departments-panel" class="bg-white p-6 rounded-xl shadow-md mb-8 border-2 border-indigo-400 print-hidden">
+                    <h2 class="text-xl font-bold text-indigo-800 mb-4 flex items-center gap-2">
+                        <i class="fas fa-building"></i> إدارة الأقسام (تحديد بيئة العمل)
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                        <div class="space-y-2">
+                            <label class="font-bold text-sm text-gray-600">اختر القسم للعمل عليه:</label>
+                            <div class="flex gap-2">
+                                <select id="department-select" class="flex-grow p-3 border-2 border-indigo-200 rounded-md font-bold text-indigo-700 bg-indigo-50 focus:ring-2 focus:ring-indigo-500 transition-all outline-none">
+                                    <option value="">جاري التحميل...</option>
+                                </select>
+                                <button id="edit-dept-btn" class="hidden bg-white text-blue-500 border border-blue-200 hover:bg-blue-50 font-bold px-4 py-3 rounded-md flex items-center justify-center transition-transform hover:scale-105 shadow-sm" title="تعديل اسم القسم"><i class="fas fa-pencil-alt"></i></button>
+                                <button id="delete-dept-btn" class="hidden bg-white text-red-500 border border-red-200 hover:bg-red-50 font-bold px-4 py-3 rounded-md flex items-center justify-center transition-transform hover:scale-105 shadow-sm" title="حذف القسم"><i class="fas fa-trash"></i></button>
                             </div>
                         </div>
-                    </details>
-                </div>
-                
-                <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
-                    <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
-                    <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
-                    <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
-                    <button id="export-report-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-invoice mr-2"></i>تصدير تقرير (HTML)</button>
-                    <button id="save-backup-btn" class="bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-save mr-2"></i>حفظ نسخة احتياطية (JSON)</button>
-                    <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
-                    <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
-                    <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
-                    <button id="reset-btn" class="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-trash-alt mr-2"></i>جديد</button>
-                    <input type="file" id="file-loader" class="hidden" accept=".json">
-                </div>
-                
-                <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex items-center gap-4">
-                    <label for="level-filter-select" class="font-bold text-gray-600">عرض جدول:</label>
-                    <select id="level-filter-select" class="w-full p-2 border rounded-md text-xl font-bold"></select>
-                </div>
-                
-                <div id="summary-table-container" class="my-6"></div>
-                <div id="unscheduled-output" class="my-6"></div>
-                <div id="conflict-output" class="my-6"></div>
-    
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div class="lg:col-span-1 space-y-6">
-                        <div class="bg-white p-6 rounded-xl shadow-md">
-                            <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-600">إضافة محاضرة / سكشن</h2>
-                            <form id="course-form" class="space-y-4">
-                                <select id="course-name-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة الرئيسية أولاً...</option></select>
-                                <select id="instructor-select" class="w-full p-2 border rounded-md" required><option value="">اختر العضو...</option></select>
-                                <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
-                                <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
-                                
-                                <div id="group-select-container">
-                                    <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
-                                    <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
-                                </div>
-    
-                                <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
-                                <div>
-                                    <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
-                                    <input type="number" id="duration" class="w-full p-2 border rounded-md" min="1" value="2" required>
-                                </div>
-                                <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center">إضافة للجدول</button>
+                        <div class="space-y-2" id="departments-controls">
+                            <label class="font-bold text-sm text-gray-600">إضافة قسم جديد:</label>
+                            <form id="department-form" class="flex gap-2">
+                                <input type="text" id="department-name" placeholder="مثال: قسم تكنولوجيا التعليم" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 outline-none" required>
+                                <button type="submit" class="bg-indigo-600 text-white font-bold p-3 px-6 rounded-md hover:bg-indigo-700 flex items-center justify-center transition-transform hover:scale-105 shadow-md">
+                                    <i class="fas fa-plus ml-2"></i> أضف
+                                </button>
                             </form>
                         </div>
-                         <div class="bg-white p-6 rounded-xl shadow-md">
-                            <div class="flex justify-between items-center mb-4 pb-2 border-b">
-                                 <h2 class="text-xl font-bold text-gray-600">قائمة المحاضرات والسكاشن</h2>
-                                 <button id="auto-schedule-btn" class="bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 shadow-md transition-transform hover:scale-105 text-sm flex items-center gap-2">
-                                     <i class="fas fa-magic"></i>
-                                     <span>تسكين تلقائي</span>
-                                 </button>
-                             </div>
-                             <div class="flex border-b mb-4">
-                                <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
-                                <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
-                                <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
-                            </div>
-                            <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
-                                <div id="courses-list-all"></div>
-                                <div id="courses-list-lectures" class="hidden"></div>
-                                <div id="courses-list-labs" class="hidden"></div>
-                            </div>
-                        </div>
-                    </div>
-    
-                    <div class="lg:col-span-2">
-                        <div id="schedule-output-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg min-w-full overflow-x-auto h-full">
-                            <div id="schedule-output"></div>
-                        </div>
                     </div>
                 </div>
+
+                <!-- Workspace wrapped to be hidden until a department is selected -->
+                <div id="app-workspace" class="hidden">
+                    <!-- Top Controls Panel -->
+                    <div id="top-controls" class="bg-white p-4 rounded-xl shadow-md mb-8 print-hidden">
+                        <details class="group">
+                            <summary class="flex justify-between items-center font-medium cursor-pointer">
+                                <h2 class="text-xl font-bold text-gray-600">إدارة البيانات الأساسية والإعدادات</h2>
+                                <span class="transition-transform duration-300 group-open:rotate-180">
+                                    <i class="fas fa-chevron-down"></i>
+                                </span>
+                            </summary>
+                            <div class="text-neutral-600 mt-4 pt-4 border-t">
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    
+                                    <div class="space-y-4 bg-gray-50 p-4 rounded-lg border">
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
+                                                <span>1. الفرق الدراسية</span>
+                                                <a href="#" onclick="window.showAdvancedLevelsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
+                                            </h3>
+                                            <form id="level-form" class="flex gap-2 mt-2">
+                                                <input type="text" id="level-name" placeholder="اسم الفرقة" class="w-full p-2 border rounded-md" required>
+                                                <button type="submit" class="bg-green-500 text-white font-bold p-2 px-4 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                            </form>
+                                            <div id="levels-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                        </div>
+                                        <div>
+                                            <h3 class="text-lg font-bold text-gray-600">2. المجموعات</h3>
+                                            <form id="group-form" class="space-y-2 mt-2">
+                                                <select id="group-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+                                                <div class="flex gap-2">
+                                                    <input type="text" id="group-name" placeholder="اسم المجموعة" class="w-full p-2 border rounded-md" required>
+                                                    <button type="submit" class="bg-teal-500 text-white font-bold p-2 px-4 rounded-md hover:bg-teal-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                                </div>
+                                            </form>
+                                            <div id="groups-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                        </div>
+                                    </div>
+        
+                                    <div class="bg-gray-50 p-4 rounded-lg border">
+                                        <h3 class="text-lg font-bold text-gray-600">3. المواد الدراسية</h3>
+                                        <form id="subject-form" class="space-y-2 mt-2">
+                                            <select id="subject-level-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة أولاً...</option></select>
+                                            <div class="flex gap-2">
+                                                <input type="text" id="subject-name" placeholder="اسم المادة" class="w-full p-2 border rounded-md" required>
+                                                <button type="submit" class="bg-purple-500 text-white font-bold p-2 px-4 rounded-md hover:bg-purple-600 flex items-center justify-center"><i class="fas fa-plus"></i></button>
+                                            </div>
+                                        </form>
+                                        <div id="subjects-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                                    </div>
+        
+                                    <div class="bg-gray-50 p-4 rounded-lg border">
+                                         <h3 class="text-lg font-bold text-gray-600 flex justify-between items-center">
+                                            <span>4. الأعضاء</span>
+                                            <a href="#" onclick="window.showAdvancedInstructorsView()" class="text-gray-400 hover:text-sky-500"><i class="fas fa-cog"></i></a>
+                                        </h3>
+                                        <form id="instructor-form" class="space-y-2 mt-2">
+                                            <input type="text" id="instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md" required>
+                                            <select id="instructor-category-select" class="w-full p-2 border rounded-md">
+                                                <option value="عضو هيئة تدريس">عضو هيئة تدريس</option> <option value="معاونون">معاونون</option> <option value="منتدبون">منتدبون</option> <option value="اعضاء من الخارج">اعضاء من الخارج</option>
+                                            </select>
+                                            <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 flex items-center justify-center">إضافة عضو</button>
+                                        </form>
+                                        <div id="instructors-list" class="mt-2 space-y-2 max-h-48 overflow-y-auto"></div>
+                                    </div>
+                                    
+                                    <div class="bg-gray-50 p-4 rounded-lg border">
+                                        <h3 class="text-lg font-bold text-gray-600">5. الأماكن</h3>
+                                        <form id="location-form" class="space-y-2 mt-2">
+                                            <input type="text" id="location-name" placeholder="اسم المكان" class="w-full p-2 border rounded-md" required>
+                                            <select id="location-type" class="w-full p-2 border rounded-md">
+                                                <option value="قاعة">قاعة</option> <option value="معمل">معمل</option> <option value="مدرج">مدرج</option>
+                                            </select>
+                                            <button type="submit" class="w-full bg-cyan-500 text-white font-bold py-2 rounded-md hover:bg-cyan-600 flex items-center justify-center">إضافة المكان</button>
+                                        </form>
+                                        <div id="locations-list" class="mt-2 space-y-2 max-h-24 overflow-y-auto"></div>
+                                    </div>
+        
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                    
+                    <div class="text-center my-8 flex flex-wrap justify-center items-center gap-4 print-hidden">
+                        <button id="locations-view-btn" class="bg-gray-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-university mr-2"></i>جداول الأماكن</button>
+                        <button id="filter-members-btn" class="bg-blue-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-blue-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-users mr-2"></i>جداول الأعضاء</button>
+                        <button id="show-conflicts-btn" class="bg-red-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-800 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-exclamation-triangle mr-2"></i>عرض التعارضات</button>
+                        <button id="export-report-btn" class="bg-purple-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-invoice mr-2"></i>تصدير تقرير (HTML)</button>
+                        <button id="save-backup-btn" class="bg-teal-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-teal-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-save mr-2"></i>حفظ نسخة احتياطية (JSON)</button>
+                        <button id="load-btn" class="bg-orange-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-orange-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-file-import mr-2"></i>استيراد</button>
+                        <button id="print-btn" class="bg-indigo-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-indigo-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-print mr-2"></i>طباعة</button>
+                        <button id="refresh-btn" class="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-700 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-redo-alt mr-2"></i>تحديث الصفحة</button>
+                        <button id="reset-btn" class="bg-red-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-600 text-lg shadow-lg transition-transform hover:scale-105"><i class="fas fa-trash-alt mr-2"></i>جديد (تهيئة القسم الحالي)</button>
+                        <input type="file" id="file-loader" class="hidden" accept=".json">
+                    </div>
+                    
+                    <div class="bg-white p-4 rounded-xl shadow-md mb-8 flex items-center gap-4">
+                        <label for="level-filter-select" class="font-bold text-gray-600">عرض جدول:</label>
+                        <select id="level-filter-select" class="w-full p-2 border rounded-md text-xl font-bold"></select>
+                    </div>
+                    
+                    <div id="summary-table-container" class="my-6"></div>
+                    <div id="unscheduled-output" class="my-6"></div>
+                    <div id="conflict-output" class="my-6"></div>
+        
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="lg:col-span-1 space-y-6">
+                            <div class="bg-white p-6 rounded-xl shadow-md">
+                                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-gray-600">إضافة محاضرة / سكشن</h2>
+                                <form id="course-form" class="space-y-4">
+                                    <select id="course-name-select" class="w-full p-2 border rounded-md" required><option value="">اختر الفرقة الرئيسية أولاً...</option></select>
+                                    <select id="instructor-select" class="w-full p-2 border rounded-md" required><option value="">اختر العضو...</option></select>
+                                    <select id="location-type-select" class="w-full p-2 border rounded-md" required><option value="">نوع المكان...</option><option value="قاعة">قاعة</option><option value="معمل">معمل</option><option value="مدرج">مدرج</option></select>
+                                    <select id="session-type" class="w-full p-2 border rounded-md"> <option value="lecture">محاضرة</option> <option value="lab">سكشن</option> </select>
+                                    
+                                    <div id="group-select-container">
+                                        <label class="font-bold text-sm text-gray-600">المجموعة (اختياري)</label>
+                                        <select id="course-group-select" class="w-full p-2 border rounded-md"><option value="">اختر المجموعة...</option></select>
+                                    </div>
+        
+                                    <input type="number" id="sections-count" placeholder="العدد" class="w-full p-2 border rounded-md" min="1" value="1" required>
+                                    <div>
+                                        <label for="duration" class="font-bold text-sm text-gray-600">المدة بالساعات</label>
+                                        <input type="number" id="duration" class="w-full p-2 border rounded-md" min="1" value="2" required>
+                                    </div>
+                                    <button type="submit" class="w-full bg-blue-500 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-600 flex items-center justify-center">إضافة للجدول</button>
+                                </form>
+                            </div>
+                             <div class="bg-white p-6 rounded-xl shadow-md">
+                                <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                                     <h2 class="text-xl font-bold text-gray-600">قائمة المحاضرات والسكاشن</h2>
+                                     <button id="auto-schedule-btn" class="bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600 shadow-md transition-transform hover:scale-105 text-sm flex items-center gap-2">
+                                         <i class="fas fa-magic"></i>
+                                         <span>تسكين تلقائي</span>
+                                     </button>
+                                 </div>
+                                 <div class="flex border-b mb-4">
+                                    <button id="filter-all-btn" class="flex-1 p-2 text-center font-semibold border-b-2 border-sky-500 text-sky-600">الكل</button>
+                                    <button id="filter-lectures-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">محاضرات</button>
+                                    <button id="filter-labs-btn" class="flex-1 p-2 text-center font-semibold text-gray-500">سكاشن</button>
+                                </div>
+                                <div id="courses-list-container" class="space-y-2 max-h-[calc(100vh-450px)] overflow-y-auto">
+                                    <div id="courses-list-all"></div>
+                                    <div id="courses-list-lectures" class="hidden"></div>
+                                    <div id="courses-list-labs" class="hidden"></div>
+                                </div>
+                            </div>
+                        </div>
+        
+                        <div class="lg:col-span-2">
+                            <div id="schedule-output-container" class="bg-white p-4 sm:p-6 rounded-xl shadow-lg min-w-full overflow-x-auto h-full">
+                                <div id="schedule-output"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div> <!-- End App Workspace -->
             </div>
     
             <!-- Advanced Views -->
@@ -491,7 +524,7 @@
                 <div id="confirm-modal-details" class="mb-4 text-sm text-gray-600 max-h-40 overflow-y-auto"></div>
                 <div class="flex justify-end gap-4">
                     <button id="confirm-modal-cancel-btn" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300">إلغاء</button>
-                    <button id="confirm-modal-confirm-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">تأكيد الحذف</button>
+                    <button id="confirm-modal-confirm-btn" class="bg-red-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-red-600">تأكيد</button>
                 </div>
             </div>
         </div>
@@ -754,6 +787,14 @@
 		});
         
         // --- MAIN APP LOGIC ---
+        let db, auth, userId;
+        // Variables supporting multi-tenancy (Departments)
+        let mainDepartmentsCol, levelsCol, groupsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, settingsCol;
+        let departments = [];
+        let currentDepartmentId = null;
+        let activeUnsubscribes = []; // To kill listeners on department switch
+        const appId = 'tabletech-app';
+
         let subjects = [], instructors = [], locations = [], courses = [], levels = [], groups = [];
         let courseColors = {}, scheduleGrid = {};
         let savedSchedules = {};
@@ -761,6 +802,7 @@
         let showConflicts = true;
         let ignoredConflicts = new Set();
         let dropContext = null;
+        let draggedItem = null;
         
         const DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس'];
         const TIME_SLOTS_HOURLY = Array.from({ length: 10 }, (_, i) => i + 8); 
@@ -769,6 +811,11 @@
         
         const dom = {
             mainContent: document.getElementById('main-content'),
+            appWorkspace: document.getElementById('app-workspace'),
+            departmentSelect: document.getElementById('department-select'),
+            departmentForm: document.getElementById('department-form'),
+            editDeptBtn: document.getElementById('edit-dept-btn'),
+            deleteDeptBtn: document.getElementById('delete-dept-btn'),
             advancedLevelsView: document.getElementById('advanced-levels-view'),
             advancedInstructorsView: document.getElementById('advanced-instructors-view'),
             customViewsContainer: document.getElementById('custom-views-container'),
@@ -876,10 +923,6 @@
                 labs: document.getElementById('filter-labs-btn')
             }
         };
-        
-        let db, auth, userId;
-        let subjectsCol, instructorsCol, locationsCol, coursesCol, levelsCol, schedulesCol, groupsCol, settingsCol;
-        let draggedItem = null;
 
         async function initializeMainApp() {
             try {
@@ -893,7 +936,6 @@
                   measurementId: "G-BG0TQQF429"
                 };
 
-                const appId = 'tabletech-app';
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -902,15 +944,12 @@
                     if (user) {
                         userId = user.uid;
                         const basePath = `artifacts/${appId}/public/data`;
-                        levelsCol = collection(db, basePath, 'levels');
-                        groupsCol = collection(db, basePath, 'groups');
-                        subjectsCol = collection(db, basePath, 'subjects');
-                        instructorsCol = collection(db, basePath, 'instructors');
-                        locationsCol = collection(db, basePath, 'locations');
-                        coursesCol = collection(db, basePath, 'courses');
-                        schedulesCol = collection(db, basePath, 'schedules');
-                        settingsCol = collection(db, basePath, 'settings');
-                        setupRealtimeListeners();
+                        mainDepartmentsCol = collection(db, basePath, 'main_departments');
+                        
+                        dom.loadingIndicator.style.display = 'none';
+                        dom.mainContent.classList.remove('hidden');
+                        
+                        setupDepartmentsListener(); // First layer: listen to departments
                     } else {
                         signInAnonymously(auth).catch(error => {
                             console.error("Anonymous Sign-In Error:", error);
@@ -924,6 +963,107 @@
             }
             setupEventListeners();
         }
+
+        function updateDepartmentButtons() {
+            if (userRole === 'admin' && currentDepartmentId) {
+                dom.editDeptBtn.classList.remove('hidden');
+                dom.deleteDeptBtn.classList.remove('hidden');
+            } else {
+                dom.editDeptBtn.classList.add('hidden');
+                dom.deleteDeptBtn.classList.add('hidden');
+            }
+        }
+
+        // --- NEW: Departments Logic ---
+        function setupDepartmentsListener() {
+            onSnapshot(mainDepartmentsCol, snapshot => {
+                departments = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                
+                // Sort departments alphabetically
+                departments.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+
+                dom.departmentSelect.innerHTML = '<option value="">-- يرجى اختيار القسم للبدء --</option>' + 
+                    departments.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+
+                if (currentDepartmentId && departments.some(d => d.id === currentDepartmentId)) {
+                    dom.departmentSelect.value = currentDepartmentId;
+                    updateDepartmentButtons();
+                } else {
+                    currentDepartmentId = null;
+                    dom.appWorkspace.classList.add('hidden');
+                    updateDepartmentButtons();
+                }
+            });
+
+            dom.departmentSelect.addEventListener('change', (e) => {
+                const deptId = e.target.value;
+                if (deptId) {
+                    switchDepartment(deptId);
+                } else {
+                    dom.appWorkspace.classList.add('hidden');
+                    currentDepartmentId = null;
+                    updateDepartmentButtons();
+                }
+            });
+
+            if (userRole === 'admin') {
+                dom.departmentForm.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('department-name');
+                    const name = nameInput.value.trim();
+                    const button = e.target.querySelector('button[type="submit"]');
+                    
+                    if (!name) return;
+                    if (departments.some(d => d.name === name)) {
+                        showToast('هذا القسم موجود بالفعل.', 'error');
+                        return;
+                    }
+
+                    toggleButtonLoading(button, true);
+                    try {
+                        await addDoc(mainDepartmentsCol, { name });
+                        nameInput.value = '';
+                        showToast('تمت إضافة القسم بنجاح!');
+                    } catch (err) {
+                        showToast('حدث خطأ أثناء الإضافة', 'error');
+                    } finally {
+                        toggleButtonLoading(button, false);
+                    }
+                });
+            }
+        }
+
+        function switchDepartment(deptId) {
+            currentDepartmentId = deptId;
+            updateDepartmentButtons();
+            dom.appWorkspace.classList.remove('hidden');
+            dom.loadingIndicator.style.display = 'block';
+
+            // 1. Kill old connections
+            activeUnsubscribes.forEach(unsub => unsub());
+            activeUnsubscribes = [];
+
+            // 2. Clear local arrays to prevent bleeding
+            subjects = []; instructors = []; locations = []; courses = []; levels = []; groups = [];
+            courseColors = {}; scheduleGrid = {}; savedSchedules = {};
+
+            // 3. Re-assign paths dynamic to department
+            // We append the deptId to the collection name to strictly isolate data
+            // while obeying the single-level public data path rule.
+            const basePath = `artifacts/${appId}/public/data`;
+            levelsCol = collection(db, basePath, `levels_${deptId}`);
+            groupsCol = collection(db, basePath, `groups_${deptId}`);
+            subjectsCol = collection(db, basePath, `subjects_${deptId}`);
+            instructorsCol = collection(db, basePath, `instructors_${deptId}`);
+            locationsCol = collection(db, basePath, `locations_${deptId}`);
+            coursesCol = collection(db, basePath, `courses_${deptId}`);
+            schedulesCol = collection(db, basePath, `schedules_${deptId}`);
+            settingsCol = collection(db, basePath, `settings_${deptId}`);
+
+            // 4. Start listening to the new collections
+            setupRealtimeListeners();
+        }
+
         
         function showToast(message, type = 'success') {
             const toastContainer = document.getElementById('toast-container');
@@ -1098,20 +1238,20 @@
             }, detailsHtml);
         };
 
-        async function setupRealtimeListeners() {
+        function setupRealtimeListeners() {
             let loadedCollections = 0;
             const totalCollections = 8; 
             const onCollectionLoaded = () => {
                 loadedCollections++;
                 if (loadedCollections >= totalCollections) {
                     dom.loadingIndicator.style.display = 'none';
-                    dom.mainContent.classList.remove('hidden');
                     detectAndDisplayConflicts();
                 }
             };
             
             const settingsDocRef = doc(settingsCol, 'app_config');
-            onSnapshot(settingsDocRef, (doc) => {
+            // Store the unsubscribes in activeUnsubscribes array
+            activeUnsubscribes.push(onSnapshot(settingsDocRef, (doc) => {
                 if (doc.exists()) {
                     ignoredConflicts = new Set(doc.data().ignoredConflicts || []);
                 }
@@ -1119,12 +1259,12 @@
             }, (error) => {
                 console.error("Error fetching settings:", error);
                 onCollectionLoaded(); 
-            });
+            }));
 
-            onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(groupsCol), s => { groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroups(); updateGroupSelector(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(subjectsCol), s => { subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); subjects.forEach(sub => courseColors[sub.name] = sub.color || generateHslColor(sub.name)); renderSubjects(); updateCourseSelector(); renderSummaryTable(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(instructorsCol), s => { 
+            activeUnsubscribes.push(onSnapshot(query(levelsCol), s => { levels = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLevels(); updateLevelSelectors(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(groupsCol), s => { groups = s.docs.map(d => ({ id: d.id, ...d.data() })); renderGroups(); updateGroupSelector(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(subjectsCol), s => { subjects = s.docs.map(d => ({ id: d.id, ...d.data() })); subjects.forEach(sub => courseColors[sub.name] = sub.color || generateHslColor(sub.name)); renderSubjects(); updateCourseSelector(); renderSummaryTable(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(instructorsCol), s => { 
                 instructors = s.docs.map(d => ({ id: d.id, ...d.data() })); 
                 renderInstructors(); 
                 updateInstructorSelector(); 
@@ -1138,10 +1278,10 @@
                     displayLocationSchedules();
                 }
                 onCollectionLoaded(); 
-            }, console.error);
-            onSnapshot(query(locationsCol), s => { locations = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLocations(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(coursesCol), s => { courses = s.docs.map(d => ({ id: d.id, ...d.data() })); renderCourses(); renderSummaryTable(); onCollectionLoaded(); }, console.error);
-            onSnapshot(query(schedulesCol), s => {
+            }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(locationsCol), s => { locations = s.docs.map(d => ({ id: d.id, ...d.data() })); renderLocations(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(coursesCol), s => { courses = s.docs.map(d => ({ id: d.id, ...d.data() })); renderCourses(); renderSummaryTable(); onCollectionLoaded(); }, console.error));
+            activeUnsubscribes.push(onSnapshot(query(schedulesCol), s => {
                 savedSchedules = {};
                 s.docs.forEach(d => { try { savedSchedules[d.id] = JSON.parse(d.data().grid); } catch (e) { console.error("Error parsing saved schedule:", e); } });
                 handleLevelFilterChange();
@@ -1156,7 +1296,7 @@
                     displayLocationSchedules();
                 }
                 onCollectionLoaded();
-            }, console.error);
+            }, console.error));
         }
         
         const showMainView = () => {
@@ -1202,6 +1342,69 @@
             setupCourseFilters();
 
             if (userRole === 'admin') {
+                // Add Department Edit Event
+                dom.editDeptBtn.addEventListener('click', () => {
+                    if (!currentDepartmentId) return;
+                    const dept = departments.find(d => d.id === currentDepartmentId);
+                    if (!dept) return;
+
+                    dom.editModalTitle.textContent = `تعديل اسم القسم`;
+                    dom.editModalInput.value = dept.name;
+                    dom.editModal.style.display = "block";
+                    
+                    dom.editModalSaveBtn.onclick = async () => {
+                        const newName = dom.editModalInput.value.trim();
+                        if (!newName || newName === dept.name) {
+                            dom.editModal.style.display = "none";
+                            return;
+                        }
+                        if (departments.some(d => d.name === newName && d.id !== currentDepartmentId)) {
+                            showToast('هذا القسم موجود بالفعل.', 'error');
+                            return;
+                        }
+                        const btn = dom.editModalSaveBtn;
+                        toggleButtonLoading(btn, true);
+                        try {
+                            await updateDoc(doc(mainDepartmentsCol, currentDepartmentId), { name: newName });
+                            showToast('تم تعديل اسم القسم بنجاح!');
+                            dom.editModal.style.display = "none";
+                        } catch (error) {
+                            showToast('حدث خطأ أثناء التعديل.', 'error');
+                        } finally {
+                            toggleButtonLoading(btn, false);
+                        }
+                    };
+                });
+
+                // Add Department Delete Event
+                dom.deleteDeptBtn.addEventListener('click', () => {
+                    if (!currentDepartmentId) return;
+                    const dept = departments.find(d => d.id === currentDepartmentId);
+                    if (!dept) return;
+
+                    showConfirmModal(`هل أنت متأكد من حذف قسم "${dept.name}"؟`, async () => {
+                        try {
+                            // First, wipe out the current department's data completely
+                            await handleReset(true); 
+
+                            // Second, delete the main department document itself
+                            await deleteDoc(doc(mainDepartmentsCol, currentDepartmentId));
+                            
+                            showToast('تم حذف القسم وجميع بياناته بنجاح!');
+                            
+                            // Reset UI state
+                            currentDepartmentId = null;
+                            dom.departmentSelect.value = '';
+                            dom.appWorkspace.classList.add('hidden');
+                            updateDepartmentButtons();
+                        } catch (error) {
+                            console.error(error);
+                            showToast('حدث خطأ أثناء الحذف.', 'error');
+                        }
+                    }, "<p class='font-bold text-red-600 mt-2'><i class='fas fa-exclamation-triangle'></i> تحذير: سيتم حذف القسم وجميع البيانات والجداول والأعضاء التابعة له نهائياً ولا يمكن التراجع عن ذلك.</p>");
+                });
+
+
                 dom.levelForm.addEventListener('submit', handleAddLevel);
                 dom.groupForm.addEventListener('submit', handleAddGroup);
                 dom.subjectForm.addEventListener('submit', async (e) => {
@@ -1305,7 +1508,7 @@
                 dom.saveBackupBtn.addEventListener('click', handleSaveBackup);
                 dom.loadBtn.addEventListener('click', () => dom.fileLoader.click());
                 dom.fileLoader.addEventListener('change', handleLoadScheduleFromFile);
-                dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل البيانات؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
+                dom.resetBtn.addEventListener('click', () => showConfirmModal("هل أنت متأكد من حذف كل بيانات هذا القسم؟ هذا الإجراء لا يمكن التراجع عنه.", () => handleReset(true)));
             }
 
             dom.locationsViewBtn.addEventListener('click', displayLocationSchedules);
@@ -1570,8 +1773,6 @@
             showToast("تم حفظ التفرغ بنجاح!");
         }
         function findAvailableLocations(course, day, time, level) {
-            // Updated to be more flexible, but this function is mainly used for suggestion.
-            // For the edit modal, we will show ALL locations.
             const targetDay = day; const targetTime = parseInt(time); const duration = course.duration; const grid = savedSchedules[level]; if (!grid) return [];
             return locations.filter(loc => { 
                 let isFree = true; for (let i = 0; i < duration; i++) { const slotData = grid[targetDay]?.[targetTime + i]?.[loc.name]; if (slotData && slotData.id !== course.id) { isFree = false; break; } } return isFree; 
@@ -1615,10 +1816,8 @@
             let locationOptions = '';
             for(const type in LOCATION_TYPES) {
                 locationOptions += `<optgroup label="${LOCATION_TYPES[type]}">`;
-                const locationsOfType = locations.filter(l => l.type === type);
+                const locationsOfType = locations.filter(l => l.type === type).sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
                 locationsOfType.forEach(loc => {
-                     // Check if it's the current location or available
-                     // We allow selection even if potentially busy, the system will check later or overwrite
                      locationOptions += `<option value="${loc.name}" ${loc.name === locationName ? 'selected' : ''}>${loc.name}</option>`;
                 });
                 locationOptions += `</optgroup>`;
@@ -1720,8 +1919,6 @@
         }
 
         async function handleDeleteFromSchedule(courseId) {
-            // This function now permanently deletes the course.
-            // The existing deleteItem function already handles everything.
             await window.deleteItem('course', courseId);
             dom.courseEditModal.style.display = 'none';
         }
@@ -1787,7 +1984,9 @@
 
             const modal = dom.customActivityModal;
             const locationSelect = dom.customActivityLocation;
-            locationSelect.innerHTML = '<option value="">(بدون مكان)</option>' + locations.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+            // Sort locations naturally
+            const sortedLocations = [...locations].sort((a,b) => a.name.localeCompare(b.name, 'ar', {numeric:true}));
+            locationSelect.innerHTML = '<option value="">(بدون مكان)</option>' + sortedLocations.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
 
             const isEditMode = activityId !== null;
             let activity = null;
@@ -2158,18 +2357,21 @@
                 });
             }
 
-
             let tableHtml = `<div class="table-container">
                                 <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
                                 <h2 class="text-2xl font-bold text-center mb-4 text-gray-700">${level === 'all' ? 'الجدول الدراسي العام' : `الجدول الدراسي - ${level}`}</h2>`;
             tableHtml += '<table class="w-full border-collapse">';
             tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
+            
+            // Sort locations numerically/alphabetically before generating
+            const sortedLocations = [...locations].sort((a,b) => a.name.localeCompare(b.name, 'ar', {numeric:true}));
+
             DAYS.forEach(day => {
                 tableHtml += `<tr class="text-center"><td class="p-2 border border-gray-300 font-semibold align-middle bg-gray-50">${day}</td>`;
                 let time_cursor = 0;
                 while (time_cursor < TIME_SLOTS_HOURLY.length) {
                     const time = TIME_SLOTS_HOURLY[time_cursor];
-                    let itemsInCell = locations.map(loc => ({ locName: loc.name, data: scheduleGrid[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
+                    let itemsInCell = sortedLocations.map(loc => ({ locName: loc.name, data: scheduleGrid[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
                     
                     itemsInCell.sort((a, b) => {
                         if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
@@ -2213,7 +2415,7 @@
                         tableHtml += `</div></td>`;
                         time_cursor += duration;
                     } else { 
-                        const isContinuationSlot = locations.some(loc => scheduleGrid[day]?.[time]?.[loc.name]?.isContinuation); 
+                        const isContinuationSlot = sortedLocations.some(loc => scheduleGrid[day]?.[time]?.[loc.name]?.isContinuation); 
                         if (!isContinuationSlot) { 
                             tableHtml += `<td class="p-0 border border-gray-300 align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="drop-target h-full" data-day="${day}" data-time="${time}"></div></td>`; 
                         } 
@@ -2229,11 +2431,13 @@
             }
         }
         function displayUnscheduled(unscheduled) { dom.unscheduledOutput.innerHTML = unscheduled.length ? `<div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-lg shadow-md" role="alert"><p class="font-bold text-lg">مواد لم يتم تسكينها:</p><ul class="list-disc list-inside">${unscheduled.map(c => `<li>${c.name} (${c.instructor})</li>`).join('')}</ul></div>` : ''; }
+        
         function displayLocationSchedules() {
             activeCustomView = 'locations'; dom.customViewsContainer.style.display = 'block'; dom.hideCustomViewBtn.classList.remove('hidden'); dom.refreshCustomViewBtn.classList.remove('hidden'); let allHtml = '<h2 class="text-3xl font-bold text-center mb-6 text-gray-700 border-b-2 pb-2">جداول الأماكن</h2>';
             for (const type in LOCATION_TYPES) { allHtml += generateAggregatedLocationTableHtml(type, `جداول ${LOCATION_TYPES[type]}`); }
             dom.customScheduleOutput.innerHTML = allHtml;
         }
+
         function displayMemberSchedules(searchQuery = '', filterCategory = 'all', filterLevel = 'all') {
             activeCustomView = 'members'; dom.customViewsContainer.style.display = 'block'; dom.hideCustomViewBtn.classList.remove('hidden'); dom.refreshCustomViewBtn.classList.remove('hidden');
             const sidebarHtml = ` <div id="members-view-sidebar" class="w-full lg:w-1/5 lg:pr-6 mb-8 lg:mb-0"> <div class="bg-white p-4 rounded-xl shadow-md space-y-4"> <div><h3 class="font-bold text-lg">تصفية الأعضاء</h3> <input type="text" id="member-search-input" placeholder="ابحث بالاسم..." class="w-full p-2 border rounded-md mt-2" value="${searchQuery}"></div> <div> <h4 class="font-bold text-sm mb-2">الفئة</h4> <div id="member-filter-options" class="space-y-2"> <label class="flex items-center"><input type="radio" name="category" value="all" class="ml-2" ${filterCategory === 'all' ? 'checked' : ''}> الكل</label> ${INSTRUCTOR_CATEGORIES.map(cat => `<label class="flex items-center"><input type="radio" name="category" value="${cat}" class="ml-2" ${filterCategory === cat ? 'checked' : ''}> ${cat}</label>`).join('')} </div> </div> <div><h4 class="font-bold text-sm mb-2">الفرقة الدراسية</h4><select id="member-level-filter" class="w-full p-2 border rounded-md"><option value="all">كل الفرق</option>${levels.map(l => `<option value="${l.name}" ${filterLevel === l.name ? 'selected' : ''}>${l.name}</option>`).join('')}</select></div> </div> </div> `;
@@ -2256,13 +2460,17 @@
                 addMemberViewDragDropListeners(); 
             }
         }
+
         function generateAggregatedLocationTableHtml(filterType, mainTitle) {
-            const filteredItems = locations.filter(l => l.type === filterType);
+            // NEW: Sort locations numerically and alphabetically
+            const filteredItems = locations
+                .filter(l => l.type === filterType)
+                .sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
+
             if (!filteredItems.length) return '';
         
             let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
             
-            // 1. Build a comprehensive locationGrid
             let locationGrid = {};
             locations.forEach(loc => {
                 locationGrid[loc.name] = {};
@@ -2272,14 +2480,13 @@
                 });
             });
 
-            // 2. Populate with courses from schedules
             for (const levelName in savedSchedules) {
                 const grid = savedSchedules[levelName];
                 for (const day in grid) {
                     for (const time in grid[day]) {
                         for (const locName in grid[day][time]) {
                             const cell = grid[day][time][locName];
-                            if (cell && locationGrid[locName]) { // Check if location exists
+                            if (cell && locationGrid[locName]) { 
                                 locationGrid[locName][day][parseInt(time)].push({ ...cell, level: levelName });
                             }
                         }
@@ -2287,7 +2494,6 @@
                 }
             }
 
-            // 3. Populate with custom activities
             instructors.forEach(instructor => {
                 const customActivities = instructor.customActivities || {};
                 for (const activityId in customActivities) {
@@ -2307,7 +2513,6 @@
                 }
             });
 
-            // 4. Render tables
             filteredItems.forEach(item => {
                 allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
                 allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
@@ -2904,12 +3109,15 @@
             tableHtml += '<table class="w-full border-collapse">';
             tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
             
+            // Sort numerically/alphabetically
+            const sortedLocations = [...locations].sort((a,b) => a.name.localeCompare(b.name, 'ar', {numeric:true}));
+
             DAYS.forEach(day => {
                 tableHtml += `<tr class="text-center"><td class="p-2 border border-gray-300 font-semibold align-middle bg-gray-50">${day}</td>`;
                 let time_cursor = 0;
                 while (time_cursor < TIME_SLOTS_HOURLY.length) {
                     const time = TIME_SLOTS_HOURLY[time_cursor];
-                    let itemsInCell = locations.map(loc => ({ locName: loc.name, data: gridForLevel[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
+                    let itemsInCell = sortedLocations.map(loc => ({ locName: loc.name, data: gridForLevel[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
                     
                     itemsInCell.sort((a, b) => {
                         if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
@@ -2937,7 +3145,7 @@
                         tableHtml += `</div></td>`;
                         time_cursor += maxDuration;
                     } else { 
-                        const isContinuationSlot = locations.some(loc => gridForLevel[day]?.[time]?.[loc.name]?.isContinuation); 
+                        const isContinuationSlot = sortedLocations.some(loc => gridForLevel[day]?.[time]?.[loc.name]?.isContinuation); 
                         if (!isContinuationSlot) { 
                             tableHtml += `<td class="p-0 border border-gray-300 align-top h-20"></td>`; 
                         } 
@@ -2954,9 +3162,9 @@
             const file = e.target.files[0]; if (!file) return;
             const reader = new FileReader();
             reader.onload = async (event) => {
-                await showConfirmModal("سيؤدي هذا إلى حذف جميع البيانات الحالية. هل أنت متأكد؟", async () => {
+                await showConfirmModal("سيؤدي هذا إلى حذف جميع بيانات القسم الحالي واستبدالها. هل أنت متأكد؟", async () => {
                     try {
-                        await handleReset(false);
+                        await handleReset(false); // Clean current department first
                         const data = JSON.parse(event.target.result);
                         const batch = writeBatch(db);
                         (data.levels || []).forEach(item => batch.set(doc(levelsCol), item));
@@ -2967,13 +3175,17 @@
                         (data.courses || []).forEach(item => batch.set(doc(coursesCol), item));
                         if (data.savedSchedules) { for (const level in data.savedSchedules) { batch.set(doc(schedulesCol, level), { grid: JSON.stringify(data.savedSchedules[level]) }); } }
                         await batch.commit();
-                        showToast("تم استيراد البيانات بنجاح!");
+                        showToast("تم استيراد البيانات للقسم بنجاح!");
                     } catch (error) { console.error("Error loading file:", error); showToast("ملف غير صالح.", "error"); }
                 });
             };
             reader.readAsText(file); e.target.value = '';
         }
+
         async function handleReset(confirmed = false) {
+            // This function now ONLY RESETS data inside the CURRENT DEPARTMENT due to dynamic collections
+            if (!currentDepartmentId) return;
+
             if(!confirmed) {
                 const batch = writeBatch(db);
                 const collections = [levelsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, groupsCol];
@@ -2988,7 +3200,7 @@
             scheduleGrid = {}; savedSchedules = {};
             dom.scheduleOutput.innerHTML = ''; dom.unscheduledOutput.innerHTML = '';
             dom.customScheduleOutput.innerHTML = '';
-            showToast("تم حذف جميع البيانات والبدء من جديد.");
+            showToast("تم تهيئة جميع بيانات القسم والبدء من جديد.");
         }
 
         window.handleUpdateMaxConcurrentSections = async (levelId) => {
