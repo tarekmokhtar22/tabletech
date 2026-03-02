@@ -1221,7 +1221,7 @@
                     }
                     if (gridWasModified) {
                         const scheduleRef = doc(db, schedulesCol.path, levelName);
-                        batch.update(scheduleRef, { grid: JSON.stringify(grid) });
+                        batch.set(scheduleRef, { grid: JSON.stringify(grid) }, { merge: true }); // SAFE UPDATE
                     }
                 }
             }
@@ -1543,9 +1543,223 @@
                     const groupSelectContainer = document.getElementById('group-select-container');
                     groupSelectContainer.style.display = e.target.value === 'lecture' ? 'block' : 'none';
                 });
+
+                // --- تفعيل مستمعي السحب والإفلات (Drag and Drop) ---
+                document.addEventListener('dragstart', (e) => {
+                    if (userRole !== 'admin') return;
+                    if (e.target.classList.contains('schedule-item')) {
+                        const courseId = e.target.dataset.courseId;
+                        if(!courseId) return; // قد يكون نشاط مخصص، نتجاهله حالياً
+                        draggedItem = { type: 'table', courseId: courseId, day: e.target.dataset.day, time: parseInt(e.target.dataset.time), location: e.target.dataset.location, level: dom.levelFilterSelect.value };
+                        e.dataTransfer.setData('text/plain', courseId);
+                        setTimeout(() => e.target.style.opacity = '0.5', 0);
+                    } else if (e.target.closest('.list-item')) {
+                        const listItem = e.target.closest('.list-item');
+                        const courseId = listItem.dataset.id;
+                        draggedItem = { type: 'list', courseId: courseId, level: dom.levelFilterSelect.value };
+                        e.dataTransfer.setData('text/plain', courseId);
+                        setTimeout(() => listItem.style.opacity = '0.5', 0);
+                    }
+                });
+
+                document.addEventListener('dragend', (e) => {
+                    if (userRole !== 'admin') return;
+                    if (e.target.classList.contains('schedule-item') || e.target.closest('.list-item')) {
+                        e.target.style.opacity = '1';
+                    }
+                    document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+                });
+
+                document.addEventListener('dragover', (e) => {
+                    if (userRole !== 'admin') return;
+                    const dropTarget = e.target.closest('.drop-target');
+                    // السماح بالسحب فقط في جداول الفرق (منع السحب في جداول الأعضاء)
+                    if (dropTarget && !dropTarget.classList.contains('member-drop-target')) {
+                        e.preventDefault();
+                        dropTarget.classList.add('drag-over');
+                    }
+                });
+
+                document.addEventListener('dragleave', (e) => {
+                    if (userRole !== 'admin') return;
+                    const dropTarget = e.target.closest('.drop-target');
+                    if (dropTarget) dropTarget.classList.remove('drag-over');
+                });
+
+                document.addEventListener('drop', async (e) => {
+                    if (userRole !== 'admin') return;
+                    const dropTargetContainer = e.target.closest('.drop-target');
+                    const droppedOnItem = e.target.closest('.schedule-item'); 
+                    
+                    if (!dropTargetContainer || dropTargetContainer.classList.contains('member-drop-target')) return;
+                    e.preventDefault();
+                    dropTargetContainer.classList.remove('drag-over');
+
+                    if (!draggedItem) return;
+
+                    const targetDay = dropTargetContainer.dataset.day;
+                    const targetTime = parseInt(dropTargetContainer.dataset.time);
+                    const level = dom.levelFilterSelect.value;
+                    
+                    if (!level || level === 'all') {
+                        showToast("يرجى اختيار فرقة دراسية أولاً للتعديل بالسحب والإفلات.", "error");
+                        return;
+                    }
+
+                    const courseId = draggedItem.courseId;
+                    const course = courses.find(c => c.id === courseId);
+                    if (!course) return;
+
+                    let grid = JSON.parse(JSON.stringify(savedSchedules[level] || {}));
+                    
+                    if (targetTime + course.duration > 18) {
+                        showToast("وقت المحاضرة يتجاوز نهاية اليوم الدراسي.", "error");
+                        return;
+                    }
+
+                    // إذا تم الإسقاط فوق مادة أخرى مباشرة -> إظهار خيارات (تبديل / إدراج معاً)
+                    if (droppedOnItem && droppedOnItem.dataset.courseId !== courseId) {
+                        const targetLoc = droppedOnItem.dataset.location;
+                        const occupiedBy = grid[targetDay][targetTime][targetLoc];
+                        
+                        dropContext = { draggedCourse: course, draggedItemInfo: draggedItem, targetDay, targetTime, targetLocation: targetLoc, occupiedBy, level };
+                        dom.dropActionModal.modal.style.display = 'block';
+                        return;
+                    }
+
+                    // وإلا، مجرد النقل إلى الخلية الفارغة أو إلى مكان آخر في نفس الخلية
+                    let targetLocation = null;
+                    if (draggedItem.type === 'table') {
+                        targetLocation = draggedItem.location;
+                    }
+
+                    let isFree = false;
+                    if (targetLocation) {
+                        isFree = true;
+                        for (let i = 0; i < course.duration; i++) {
+                            const existing = grid[targetDay]?.[targetTime + i]?.[targetLocation];
+                            if (existing && existing.id !== courseId) {
+                                isFree = false; break;
+                            }
+                        }
+                    }
+
+                    // إذا لم يكن المكان القديم متاحاً أو تم السحب من القائمة الجانبية -> ابحث عن مكان فارغ
+                    if (!isFree) {
+                        const availableLocs = findAvailableLocations(course, targetDay, targetTime, level);
+                        const matchingLocs = availableLocs.filter(l => l.type === course.requiredLocationType);
+                        if (matchingLocs.length > 0) {
+                            targetLocation = matchingLocs[0].name;
+                        } else {
+                            showToast("لا توجد أماكن متاحة (قاعات/معامل) في هذا الوقت لتسكين المادة.", "error");
+                            return;
+                        }
+                    }
+
+                    await executeMove(draggedItem, course, targetDay, targetTime, targetLocation, level, grid);
+                });
             }
         }
         
+        // --- الدوال الأساسية للسحب والإفلات ---
+        async function executeMove(dragInfo, course, targetDay, targetTime, targetLocation, level, grid) {
+            // حذف المادة من المكان القديم إذا كانت مسحوبة من الجدول
+            if (dragInfo.type === 'table') {
+                for (let i = 0; i < course.duration; i++) {
+                    if (grid[dragInfo.day]?.[dragInfo.time + i]?.[dragInfo.location]) {
+                        delete grid[dragInfo.day][dragInfo.time + i][dragInfo.location];
+                    }
+                }
+            }
+
+            // إعداد البيانات
+            let cellData;
+            if (dragInfo.type === 'table') {
+                cellData = savedSchedules[level][dragInfo.day][dragInfo.time][dragInfo.location];
+                cellData = { ...cellData, isContinuation: false }; 
+            } else {
+                cellData = { ...course, isContinuation: false };
+            }
+
+            // وضع المادة في المكان الجديد
+            for (let i = 0; i < course.duration; i++) {
+                if (!grid[targetDay]) grid[targetDay] = {};
+                if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
+                grid[targetDay][targetTime + i][targetLocation] = { ...cellData, isContinuation: i > 0 };
+            }
+
+            await saveScheduleToFirebase(level, grid);
+            draggedItem = null;
+            showToast("تم نقل المادة بنجاح!");
+            handleLevelFilterChange(); // تحديث العرض
+        }
+
+        async function handleSwapAction() {
+            dom.dropActionModal.modal.style.display = 'none';
+            if (!dropContext) return;
+            
+            const { draggedCourse, draggedItemInfo, targetDay, targetTime, targetLocation, occupiedBy, level } = dropContext;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+
+            if (draggedItemInfo.type === 'list') {
+                showToast("لا يمكن التبديل مع مادة من القائمة الجانبية، يمكنك الإدراج معاً فقط.", "error");
+                return;
+            }
+
+            if (draggedCourse.duration !== occupiedBy.duration) {
+                showToast("عفواً، يجب أن تكون المادتان بنفس المدة الزمنية لإتمام التبديل.", "error");
+                return;
+            }
+
+            // إزالة كلا المادتين من أماكنهما
+            for (let i = 0; i < draggedCourse.duration; i++) {
+                delete grid[draggedItemInfo.day][draggedItemInfo.time + i][draggedItemInfo.location];
+                delete grid[targetDay][targetTime + i][targetLocation];
+            }
+
+            // وضع المادة المسحوبة في المكان الجديد
+            const draggedData = savedSchedules[level][draggedItemInfo.day][draggedItemInfo.time][draggedItemInfo.location];
+            for (let i = 0; i < draggedCourse.duration; i++) {
+                if (!grid[targetDay]) grid[targetDay] = {};
+                if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
+                grid[targetDay][targetTime + i][targetLocation] = { ...draggedData, isContinuation: i > 0 };
+            }
+
+            // وضع المادة القديمة في المكان الأصلي للمادة المسحوبة
+            for (let i = 0; i < occupiedBy.duration; i++) {
+                if (!grid[draggedItemInfo.day]) grid[draggedItemInfo.day] = {};
+                if (!grid[draggedItemInfo.day][draggedItemInfo.time + i]) grid[draggedItemInfo.day][draggedItemInfo.time + i] = {};
+                grid[draggedItemInfo.day][draggedItemInfo.time + i][draggedItemInfo.location] = { ...occupiedBy, isContinuation: i > 0 };
+            }
+
+            await saveScheduleToFirebase(level, grid);
+            showToast("تم التبديل بنجاح!");
+            dropContext = null; draggedItem = null;
+            handleLevelFilterChange();
+        }
+
+        async function handleInsertTogetherAction() {
+            dom.dropActionModal.modal.style.display = 'none';
+            if (!dropContext) return;
+            
+            const { draggedCourse, draggedItemInfo, targetDay, targetTime, level } = dropContext;
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+
+            // البحث عن قاعة/معمل آخر فارغ في نفس الوقت المزدحم
+            const availableLocs = findAvailableLocations(draggedCourse, targetDay, targetTime, level);
+            const matchingLocs = availableLocs.filter(l => l.type === draggedCourse.requiredLocationType);
+
+            if (matchingLocs.length === 0) {
+                showToast("عذراً، لا توجد قاعات أخرى فارغة لإدراج هذه المادة في نفس الوقت!", "error");
+                return;
+            }
+
+            const newTargetLocation = matchingLocs[0].name;
+            await executeMove(draggedItemInfo, draggedCourse, targetDay, targetTime, newTargetLocation, level, grid);
+            dropContext = null;
+        }
+        // ------------------------------------------------
+
         function createControlButtons(type, id) { 
             if (userRole === 'guest') return '';
             return `<div class="control-buttons flex items-center gap-2"> <button onclick="window.openEditModal('${type}', '${id}')" class="text-blue-500 hover:text-blue-700 p-1"><i class="fas fa-pencil-alt"></i></button> ${type === 'instructor' ? `<button onclick="window.openAvailabilityModal('${id}')" class="text-green-500 hover:text-green-700 p-1"><i class="fas fa-clock"></i></button>` : ''} <button onclick="window.deleteItem('${type}', '${id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button> </div>`; 
@@ -1561,7 +1775,8 @@
 
             const renderList = (courseArray, targetElement, type) => {
                  if(type === filterType || filterType === 'all') {
-                    targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
+                    // جعل القائمة الجانبية قابلة للسحب أيضاً (draggable)
+                    targetElement.innerHTML = courseArray.length ? courseArray.map(c => `<div class="list-item flex justify-between items-center p-2 bg-gray-50 rounded-md border-l-4" data-id="${c.id}" draggable="${userRole === 'admin' ? 'true' : 'false'}" style="border-color: ${courseColors[c.baseName] || '#cccccc'}"><div><p class="font-semibold text-sm">${c.name} ${c.groupName ? `(${c.groupName})` : ''}</p><p class="text-xs text-gray-500">${c.instructor} | ${c.duration} س | ${c.requiredLocationType}</p></div>${userRole === 'admin' ? `<button onclick="window.deleteItem('course', '${c.id}')" class="text-red-500 hover:text-red-700 p-1"><i class="fas fa-trash"></i></button>` : ''}</div>`).join('') : '<p class="text-gray-400 text-center p-4">لا توجد بيانات.</p>';
                  }
             }
 
@@ -1716,9 +1931,30 @@
             }
             if (type === 'group') { courses.forEach(c => { if(c.groupName === oldName) batch.update(doc(db, coursesCol.path, c.id), { groupName: newName }); }); }
             if (type === 'instructor') { courses.forEach(c => { if(c.instructor === oldName) batch.update(doc(db, coursesCol.path, c.id), { instructor: newName }); }); }
+            
+            // Fixed: use batch.set(..., {merge: true}) instead of batch.update for grids to prevent NOT_FOUND errors
             if (type === 'subject') {
                 courses.forEach(c => { if (c.baseName === oldName) { batch.update(doc(db, coursesCol.path, c.id), { baseName: newName, name: c.name.replace(oldName, newName) }); } });
-                for (const levelName in savedSchedules) { let grid = JSON.parse(JSON.stringify(savedSchedules[levelName])); let gridWasModified = false; for (const day in grid) { for (const time in grid[day]) { for (const loc in grid[day][time]) { const cellData = grid[day][time][loc]; if (cellData && cellData.baseName === oldName) { cellData.baseName = newName; cellData.name = cellData.name.replace(oldName, newName); gridWasModified = true; } } } } if (gridWasModified) { const scheduleRef = doc(db, schedulesCol.path, levelName); batch.update(scheduleRef, { grid: JSON.stringify(grid) }); } }
+                for (const levelName in savedSchedules) { 
+                    let grid = JSON.parse(JSON.stringify(savedSchedules[levelName])); 
+                    let gridWasModified = false; 
+                    for (const day in grid) { 
+                        for (const time in grid[day]) { 
+                            for (const loc in grid[day][time]) { 
+                                const cellData = grid[day][time][loc]; 
+                                if (cellData && cellData.baseName === oldName) { 
+                                    cellData.baseName = newName; 
+                                    cellData.name = cellData.name.replace(oldName, newName); 
+                                    gridWasModified = true; 
+                                } 
+                            } 
+                        } 
+                    } 
+                    if (gridWasModified) { 
+                        const scheduleRef = doc(db, schedulesCol.path, levelName); 
+                        batch.set(scheduleRef, { grid: JSON.stringify(grid) }, { merge: true }); 
+                    } 
+                }
             }
              if (type === 'location') {
                 const { newType } = options;
@@ -1739,7 +1975,7 @@
                         }
                         if (gridWasModified) {
                             const scheduleRef = doc(db, schedulesCol.path, levelName);
-                            batch.update(scheduleRef, { grid: JSON.stringify(grid) });
+                            batch.set(scheduleRef, { grid: JSON.stringify(grid) }, { merge: true }); // SAFE UPDATE
                         }
                     }
                 }
@@ -1837,11 +2073,12 @@
             dom.courseEditModalMergeBtn.onclick = () => handleMergeCourse(courseId, currentLevel);
         };
 
+        // FIXED: Re-engineered function to safely update location and validate before saving
         async function handleScheduleItemUpdate(context) {
             const { courseId, subjectId, originalSubjectName, originalLocation, day, time, level } = context; 
             const newSubjectName = document.getElementById('course-edit-subject-name-input').value.trim();
-            if (newSubjectName && newSubjectName !== originalSubjectName) { await handleUpdateItem('subject', subjectId, newSubjectName); dom.courseEditModal.style.display = 'none'; return; }
             
+            // 1. Gather Inputs
             const course = courses.find(c => c.id === courseId);
             const newSectionName = document.getElementById('course-edit-section-name-input').value.trim();
             const newInstructor = dom.courseEditInstructorSelect.value;
@@ -1849,11 +2086,40 @@
             const newLocation = document.getElementById('course-edit-location-select').value;
             const newColor = document.getElementById('course-edit-color-input').value;
 
+            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
+            const courseDataInGrid = grid[day]?.[parseInt(time)]?.[originalLocation];
+
+            if (!courseDataInGrid) {
+                showToast("خطأ: لم يتم العثور على المقرر في الجدول.", "error");
+                return;
+            }
+
+            // 2. Validate Location Change FIRST before any DB commits
+            if (newLocation !== originalLocation) {
+                let isFree = true;
+                for (let i = 0; i < courseDataInGrid.duration; i++) {
+                     if (grid[day]?.[parseInt(time) + i]?.[newLocation]) {
+                         isFree = false; break;
+                     }
+                }
+
+                if (!isFree) {
+                    showToast("المكان الجديد مشغول! يرجى إفراغه أولاً أو اختيار مكان آخر.", "error");
+                    return; // SAFE EXIT: Nothing broke, user can try again
+                }
+            }
+
+            // 3. Process Firebase Document Updates
             const batch = writeBatch(db);
+            
+            // If the subject name changed, trigger the universal update function first
+            if (newSubjectName && newSubjectName !== originalSubjectName) { 
+                await handleUpdateItem('subject', subjectId, newSubjectName); 
+            }
+
             const subjectRef = doc(db, subjectsCol.path, subjectId);
             batch.update(subjectRef, { color: newColor });
             
-            // Find the location object to get its type
             const locationObj = locations.find(l => l.name === newLocation);
             const newLocationType = locationObj ? locationObj.type : 'قاعة';
 
@@ -1865,7 +2131,6 @@
                     courseUpdates.groupName = newGroupName || null;
                 }
                 if (course.type === 'lab' && newSectionName && newSectionName !== course.name) courseUpdates.name = newSectionName;
-                // Update required type if location changed
                 courseUpdates.requiredLocationType = newLocationType;
 
                 if (Object.keys(courseUpdates).length > 0) {
@@ -1874,48 +2139,45 @@
             }
             await batch.commit();
 
-            let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
-            const courseDataInGrid = grid[day]?.[parseInt(time)]?.[originalLocation];
-            
-            if (courseDataInGrid) {
-                let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
-                updatedCourseData.requiredLocationType = newLocationType; // Sync type in grid
+            // 4. Safely apply grid movement
+            let updatedCourseData = { ...courseDataInGrid, instructor: newInstructor };
+            updatedCourseData.requiredLocationType = newLocationType; 
 
-                if (courseDataInGrid.type === 'lecture') {
-                    updatedCourseData.groupName = newGroupName || null;
+            if (updatedCourseData.type === 'lecture') {
+                updatedCourseData.groupName = newGroupName || null;
+            }
+            if (updatedCourseData.type === 'lab' && newSectionName) {
+                updatedCourseData.name = newSectionName;
+            }
+            // Sync new Subject name into grid if it changed
+            if (newSubjectName && newSubjectName !== originalSubjectName) {
+                 updatedCourseData.baseName = newSubjectName;
+                 updatedCourseData.name = updatedCourseData.name.replace(originalSubjectName, newSubjectName);
+            }
+
+            if (newLocation !== originalLocation) {
+                for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { delete grid[day][parseInt(time) + i][originalLocation]; } }
+                for (let i = 0; i < courseDataInGrid.duration; i++) {
+                    if (!grid[day]) grid[day] = {};
+                    if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {};
+                    grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 };
                 }
-                if (courseDataInGrid.type === 'lab' && newSectionName) {
-                    updatedCourseData.name = newSectionName;
-                }
-
-                if (newLocation !== originalLocation) {
-                    // Check if new location is free
-                    let isFree = true;
-                    for (let i = 0; i < courseDataInGrid.duration; i++) {
-                         if (grid[day]?.[parseInt(time) + i]?.[newLocation]) {
-                             isFree = false; break;
-                         }
-                    }
-
-                    if (!isFree) {
-                        showToast("المكان الجديد مشغول! قم بإفراغه أولاً.", "error");
-                        // We updated metadata (color/instructor) but not the grid move
-                        return;
-                    }
-
-                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]) { delete grid[day][parseInt(time) + i][originalLocation]; } }
-                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (!grid[day]) grid[day] = {}; if (!grid[day][parseInt(time) + i]) grid[day][parseInt(time) + i] = {}; grid[day][parseInt(time) + i][newLocation] = { ...updatedCourseData, isContinuation: i > 0 }; }
-                } else {
-                    for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]?.[originalLocation]) { grid[day][parseInt(time) + i][originalLocation] = { ...updatedCourseData, isContinuation: i > 0 }; } }
-                }
-                await saveScheduleToFirebase(level, grid);
+            } else {
+                for (let i = 0; i < courseDataInGrid.duration; i++) { if (grid[day]?.[parseInt(time) + i]?.[originalLocation]) { grid[day][parseInt(time) + i][originalLocation] = { ...updatedCourseData, isContinuation: i > 0 }; } }
             }
             
-            dom.courseEditModal.style.display = 'none';
-            showToast("تم حفظ التعديلات!");
+            await saveScheduleToFirebase(level, grid);
             
-            // Refresh custom views if open
+            dom.courseEditModal.style.display = 'none';
+            showToast("تم حفظ التعديلات ونقل المكان بنجاح!");
+            
             if(activeCustomView === 'locations') displayLocationSchedules();
+            if(activeCustomView === 'members') {
+                const search = document.getElementById('member-search-input')?.value || '';
+                const category = document.querySelector('input[name="category"]:checked')?.value || 'all';
+                const levelFilter = document.getElementById('member-level-filter')?.value || 'all';
+                displayMemberSchedules(search, category, levelFilter);
+            }
         }
 
         async function handleDeleteFromSchedule(courseId) {
@@ -2525,1030 +2787,482 @@
                     let time_cursor = 0;
                     while (time_cursor < TIME_SLOTS_HOURLY.length) {
                         const time = TIME_SLOTS_HOURLY[time_cursor];
-                        const apps = currentLocGrid[day][time].filter(app => !app.isContinuation);
+                        const cellItems = currentLocGrid[day][time] || [];
                         
-                        if (apps.length > 0) {
-                            const maxDuration = Math.max(...apps.map(app => app.duration || 1));
-                            allHtml += `<td class="p-1 border align-top h-20" colspan="${maxDuration}">`;
-                            allHtml += '<div class="flex flex-col gap-1">';
+                        if (cellItems.length > 0) {
+                            const cellData = cellItems[0];
+                            const duration = cellData.duration || 1;
+                            const bgColor = cellData.type === 'custom' ? (cellData.color || '#e5e7eb') : (courseColors[cellData.baseName] || '#e5e7eb');
+                            const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc');
                             
-                            apps.forEach(cellData => {
-                                const contentHtml = `<p class="font-bold">${cellData.name || cellData.text}</p><p>${cellData.instructor}</p><p class="text-xs text-gray-500">${cellData.level}</p>`;
-                                const bgColor = cellData.color || courseColors[cellData.baseName] || '#e5e7eb';
-                                // Enable editing from Location View
-                                const clickHandler = canEdit 
-                                    ? (cellData.type === 'custom' 
-                                        ? `onclick="window.openCustomActivityModal('${instructors.find(i=>i.name===cellData.instructor)?.id}', '${day}', ${time}, '${cellData.id}')"`
-                                        : (cellData.type === 'custom_activity'
-                                            ? `onclick="window.openLevelActivityModal('${day}', ${time}, '${item.name}', '${cellData.id}', '${cellData.level}')"`
-                                            : `onclick="window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')"`
-                                          )
-                                    )
-                                    : '';
-                                
-                                allHtml += `<div class="schedule-item text-[11px]" ${clickHandler} style="background-color: ${bgColor};">${contentHtml}</div>`;
-                            });
-                            
-                            allHtml += '</div></td>';
-
-                            // Mark continuation slots
-                            for(let d = 1; d < maxDuration; d++){
-                                const nextTime = time + d;
-                                apps.forEach(app => {
-                                    if(d < app.duration){
-                                        if(!currentLocGrid[day][nextTime]) currentLocGrid[day][nextTime] = [];
-                                        currentLocGrid[day][nextTime].push({...app, isContinuation: true});
-                                    }
-                                });
+                            let itemClickHandler = '';
+                            if (canEdit) {
+                                if (cellData.type === 'custom') {
+                                    itemClickHandler = `window.openLocationActivityModal('${item.name}', '${day}', ${time}, '${cellData.id}')`;
+                                } else {
+                                    itemClickHandler = `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')`;
+                                }
                             }
-                            time_cursor += maxDuration;
+
+                            allHtml += `<td class="p-1 border align-top" colspan="${duration}">`;
+                            allHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="${itemClickHandler}">`;
+                            allHtml += `<p class="font-bold">${cellData.name}</p>`;
+                            if(cellData.instructor) allHtml += `<p>${cellData.instructor}</p>`;
+                            if(cellData.level) allHtml += `<p class="font-semibold text-gray-600">${cellData.level}</p>`;
+                            allHtml += `</div></td>`;
+                            time_cursor += duration;
                         } else {
-                            const addActivityClickHandler = userRole === 'admin' ? `onclick="window.openLocationActivityModal('${item.name}', '${day}', ${time})"` : '';
-                            allHtml += `<td class="p-1 border align-top h-20 empty-slot" ${addActivityClickHandler}></td>`;
+                            const addActivityClickHandler = canEdit ? `window.openLocationActivityModal('${item.name}', '${day}', ${time})` : '';
+                            allHtml += `<td class="p-0 border align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="h-full min-h-[50px]"></div></td>`;
                             time_cursor++;
                         }
                     }
                     allHtml += `</tr>`;
                 });
-                allHtml += '</tbody></table></div>';
+                allHtml += `</tbody></table></div>`;
             });
-            allHtml += '</div>';
+            
             return allHtml;
         }
 
-        function generateInstructorSchedulesHtml(searchQuery = '', filterCategory = 'all', filterLevel = 'all') {
-            let filteredInstructors = [...instructors]; 
-            // Sort Alphabetically
-            filteredInstructors.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+        function generateInstructorSchedulesHtml(searchQuery, filterCategory, filterLevel) {
+            let html = '';
+            let filteredInstructors = instructors;
             
-            if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } 
-            if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
-            if (filterLevel !== 'all') {
-                const instructorsForLevel = new Set();
-                for (const levelName in savedSchedules) {
-                    if (levelName === filterLevel) {
-                        const grid = savedSchedules[levelName];
-                        for(const day in grid) for(const time in grid[day]) for(const loc in grid[day][time]) {
-                            const cell = grid[day][time][loc];
-                            if(cell && cell.instructor) instructorsForLevel.add(cell.instructor);
-                        }
-                    }
-                }
-                filteredInstructors = filteredInstructors.filter(inst => instructorsForLevel.has(inst.name));
+            if (searchQuery) {
+                filteredInstructors = filteredInstructors.filter(i => i.name.includes(searchQuery));
+            }
+            if (filterCategory !== 'all') {
+                filteredInstructors = filteredInstructors.filter(i => i.category === filterCategory);
             }
 
-            if (!filteredInstructors.length) return '<p class="text-center text-gray-500">لا يوجد أعضاء مطابقون لمعايير البحث.</p>';
-            let allHtml = '';
-            INSTRUCTOR_CATEGORIES.forEach(category => {
-                const members = filteredInstructors.filter(inst => inst.category === category);
-                if (members.length > 0) {
-                    allHtml += `<h3 class="text-2xl font-bold text-center my-6 text-sky-700">${category}</h3>`;
-                    members.forEach(instructor => {
-                        let instructorGrid = {}; 
-                        DAYS.forEach(d => { instructorGrid[d] = {}; TIME_SLOTS_HOURLY.forEach(t => instructorGrid[d][t] = []); });
-                        
-                        for (const levelName in savedSchedules) { const grid = savedSchedules[levelName]; for (const day of DAYS) { for (const time of TIME_SLOTS_HOURLY) { for (const loc of locations) { const cell = grid[day]?.[time]?.[loc.name]; if (cell && cell.instructor === instructor.name) { instructorGrid[day][parseInt(time)].push({...cell, type: cell.type === 'custom_activity' ? 'custom' : 'course', location: loc.name, level: levelName }); } } } } }
-                        const customActivities = instructor.customActivities || {};
-                        for (const activityId in customActivities) {
-                            const activity = { id: activityId, ...customActivities[activityId] };
-                            if (instructorGrid[activity.day] && instructorGrid[activity.day][activity.time]) {
-                                instructorGrid[activity.day][activity.time].push({ type: 'custom', ...activity });
-                            }
-                        }
-                        const canEdit = userRole === 'admin';
-                        allHtml += `<div class="mb-10 bg-white p-4 sm:p-6 rounded-xl shadow-lg"> <h4 class="text-xl font-bold text-center mb-4 text-sky-600">${instructor.name}</h4> <div class="table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h5 class="font-bold text-center text-md mb-2 text-gray-700">الجدول التفصيلي</h5> <table class="w-full text-sm text-center border-collapse"> <thead><tr class="bg-gray-100"> <th class="p-2 border">اليوم</th> ${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono">${formatTimeSlot(t)}</th>`).join('')} </tr></thead><tbody>`;
-                        DAYS.forEach(day => {
-                            allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`; 
-                            let time_cursor = 0;
-                            while (time_cursor < TIME_SLOTS_HOURLY.length) {
-                                const time = TIME_SLOTS_HOURLY[time_cursor];
-                                const apps = instructorGrid[day][time].filter(app => !app.isContinuation);
-                                
-                                const addActivityBtn = canEdit ? `<div class="add-concurrent-btn" onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"><i class="fas fa-plus"></i></div>` : '';
-                                const emptySlotClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time})"` : '';
-                                
-                                if (apps.length > 0) {
-                                    const maxDuration = Math.max(...apps.map(app => app.duration || 1));
-                                    allHtml += `<td class="p-1 border align-top occupied-slot" colspan="${maxDuration}" style="position: relative;">`;
-                                    allHtml += addActivityBtn;
-                                    allHtml += '<div class="flex flex-col gap-1">';
-                                    apps.forEach(app => {
-                                        const bgColor = app.color || courseColors[app.baseName] || (app.type === 'custom' ? '#e5e7eb' : '#f3f4f6');
-                                        let contentHtml = '';
-                                        const scheduleItemClick = canEdit ? `onclick="window.openScheduleItemModal('${app.id}', '${day}', ${time}, '${app.location}', '${app.level}')"` : '';
-                                        const customActivityClick = canEdit ? `onclick="window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${app.id}')"` : '';
-                                        const draggableAttr = canEdit ? 'draggable="true"' : '';
+            // Sort instructors alphabetically
+            filteredInstructors.sort((a,b) => a.name.localeCompare(b.name, 'ar'));
 
-                                        if (app.type === 'course') { 
-                                            contentHtml = `<div class="schedule-item text-[9px]" ${scheduleItemClick} style="background-color: ${bgColor};"><p class="font-bold">${app.name} ${app.groupName ? `(${app.groupName})` : ''}</p><p>${app.level}</p><p class="text-gray-700 font-semibold">${app.location}</p></div>`; 
-                                        } else { // Custom activity
-                                            contentHtml = `<div class="schedule-item text-[9px]" ${draggableAttr} data-type="activity" data-activity-id="${app.id}" data-instructor-id="${instructor.id}" ${customActivityClick} style="background-color: ${bgColor};"><p class="font-bold">${app.text || app.name}</p>${app.location ? `<p class="text-gray-700 font-semibold">${app.location}</p>` : ''}${app.level ? `<p>${app.level}</p>` : ''}</div>`; 
-                                        }
-                                        allHtml += contentHtml;
-                                    });
-                                    allHtml += `</div></td>`;
-                                    
-                                    for(let d=1; d < maxDuration; d++){
-                                        const nextTime = time + d;
-                                        apps.forEach(app => {
-                                            if(d < app.duration){
-                                                if(!instructorGrid[day][nextTime]) instructorGrid[day][nextTime] = [];
-                                                instructorGrid[day][nextTime].push({...app, isContinuation: true});
-                                            }
-                                        });
-                                    }
-                                    time_cursor += maxDuration;
-                                } else {
-                                    allHtml += `<td class="p-2 border empty-slot" ${emptySlotClick}></td>`;
-                                    time_cursor++;
+            if (filteredInstructors.length === 0) return '<p class="text-center text-gray-500 mt-8">لا يوجد أعضاء يطابقون شروط البحث.</p>';
+
+            filteredInstructors.forEach(instructor => {
+                let hasClasses = false;
+                let instructorTableHtml = `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-blue-600">${instructor.name}</h4>`;
+                instructorTableHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
+                
+                DAYS.forEach(day => {
+                    instructorTableHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
+                    let time_cursor = 0;
+                    while (time_cursor < TIME_SLOTS_HOURLY.length) {
+                        const time = TIME_SLOTS_HOURLY[time_cursor];
+                        let itemsInCell = [];
+
+                        // 1. Check normal schedules
+                        for (const levelName in savedSchedules) {
+                            if (filterLevel !== 'all' && levelName !== filterLevel) continue;
+                            const grid = savedSchedules[levelName];
+                            for (const locName in grid[day]?.[time] || {}) {
+                                const cell = grid[day][time][locName];
+                                if (cell && cell.instructor === instructor.name && !cell.isContinuation) {
+                                    itemsInCell.push({ ...cell, location: locName, level: levelName });
                                 }
                             }
-                            allHtml += `</tr>`;
-                        });
-                        allHtml += `</tbody></table></div> ${generateMirrorTableHtml(instructor)} </div>`;
-                    });
-                }
-            });
-            return allHtml;
-        }
+                        }
 
-        function generateMirrorTableHtml(instructor) {
-            let theoreticalHours = 0;
-            let practicalHours = 0;
-            const summaryRows = [];
-            const timeSlotMap = new Map();
-
-            // Populate timeSlotMap from courses in schedules
-            for (const levelName in savedSchedules) {
-                const grid = savedSchedules[levelName];
-                for (const day in grid) {
-                    for (const time in grid[day]) {
-                        for (const loc in grid[day][time]) {
-                            const cell = grid[day][time][loc];
-                            if (cell && cell.instructor === instructor.name && !cell.isContinuation) {
-                                const mapKey = `${day}-${time}`;
-                                if (!timeSlotMap.has(mapKey)) { timeSlotMap.set(mapKey, []); }
-                                timeSlotMap.get(mapKey).push(cell);
+                        // 2. Check custom activities
+                        if (instructor.customActivities) {
+                            for(const actId in instructor.customActivities) {
+                                const act = instructor.customActivities[actId];
+                                if (act.day === day && act.time === time) {
+                                    itemsInCell.push({
+                                        id: actId,
+                                        type: 'custom',
+                                        name: act.text,
+                                        duration: act.duration,
+                                        location: act.location,
+                                        level: ''
+                                    });
+                                }
                             }
                         }
-                    }
-                }
-            }
 
-            // Populate timeSlotMap from personal custom activities
-            const customActivities = instructor.customActivities || {};
-            for (const id in customActivities) {
-                const activity = { id, type: 'custom', ...customActivities[id] };
-                const mapKey = `${activity.day}-${activity.time}`;
-                if (!timeSlotMap.has(mapKey)) { timeSlotMap.set(mapKey, []); }
-                timeSlotMap.get(mapKey).push(activity);
-            }
+                        const canEdit = userRole === 'admin';
+                        const addActivityClickHandler = canEdit ? `window.openCustomActivityModal('${instructor.id}', '${day}', ${time})` : '';
 
-            // Process sorted slots to build summary and calculate hours
-            const processedItems = new Set();
-            const sortedSlotKeys = Array.from(timeSlotMap.keys()).sort((a, b) => {
-                const [dayA, timeA] = a.split('-');
-                const [dayB, timeB] = b.split('-');
-                if (dayA !== dayB) return DAYS.indexOf(dayA) - DAYS.indexOf(dayB);
-                return parseInt(timeA) - parseInt(timeB);
-            });
-            
-            for (const key of sortedSlotKeys) {
-                const itemsInSlot = timeSlotMap.get(key);
-                itemsInSlot.forEach(item => {
-                    if (processedItems.has(item.id)) return;
-
-                    if (item.type === 'custom_activity' || item.type === 'custom') {
-                        practicalHours += item.duration || 0;
-                        const activityTypeText = item.type === 'custom' ? '' : 'نشاط بالجدول';
-                        summaryRows.push(`<tr class="border-b bg-gray-50"><td class="p-2 font-semibold">${item.name || item.text} ${item.location ? `(${item.location})` : ''} ${activityTypeText ? `(${activityTypeText})` : ''}</td><td class="p-2 text-center">-</td><td class="p-2 text-center">${item.duration || 0}</td></tr>`);
-                    } else {
-                        const subject = subjects.find(s => s.name === item.baseName);
-                        const courseTheoretical = item.type === 'lecture' ? (item.duration || 0) : 0;
-                        const coursePractical = item.type !== 'lecture' ? (item.duration || 0) : 0;
-                        theoreticalHours += courseTheoretical;
-                        practicalHours += coursePractical;
-                        summaryRows.push(`<tr class="border-b"><td class="p-2 font-semibold">${item.name} (${subject?.academicLevel || 'غير محدد'})</td><td class="p-2 text-center">${courseTheoretical > 0 ? courseTheoretical : '-'}</td><td class="p-2 text-center">${coursePractical > 0 ? coursePractical : '-'}</td></tr>`);
-                    }
-                    processedItems.add(item.id);
-                });
-            }
-
-            // Calculate total hours based on non-overlapping time slots
-            let totalHoursSummary = 0;
-            const processedTimeSlots = new Set();
-            for (const key of sortedSlotKeys) {
-                if (processedTimeSlots.has(key)) continue;
-                const itemsInSlot = timeSlotMap.get(key);
-                const maxDuration = Math.max(...itemsInSlot.map(item => item.duration || 1));
-                totalHoursSummary += maxDuration;
-                const [day, timeStr] = key.split('-');
-                const time = parseInt(timeStr);
-                for (let i = 0; i < maxDuration; i++) {
-                    processedTimeSlots.add(`${day}-${time + i}`);
-                }
-            }
-
-            return `
-            <div class="mt-6 p-4 bg-gray-50 border rounded-lg table-container">
-                <button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button>
-                <h5 class="font-bold text-center text-lg mb-4 text-gray-700">مرايا الجدول (ملخص النصاب الفعلي)</h5>
-                <table class="w-full text-sm text-right">
-                    <thead><tr class="bg-gray-200 text-gray-600"><th class="p-2">المقرر / النشاط (الفرقة)</th><th class="p-2 text-center">ساعات نظري</th><th class="p-2 text-center">ساعات عملي</th></tr></thead>
-                    <tbody>${summaryRows.length > 0 ? summaryRows.join('') : `<tr><td colspan="3" class="text-center p-4 text-gray-500">لم يتم تسكين أي مهام لهذا العضو في الجداول.</td></tr>`}</tbody>
-                    <tfoot><tr class="bg-gray-200 font-bold border-t-2 border-gray-300"><td colspan="3" class="p-3 text-center text-md">${theoreticalHours} <span class="font-normal text-gray-600">نظري</span> + ${practicalHours} <span class="font-normal text-gray-600">عملي</span> = ${totalHoursSummary} <span class="font-normal text-gray-600">ساعة إجمالية</span></td></tr></tfoot>
-                </table>
-            </div>`;
-        }
-
-
-        function addDragAndDropListeners(containerSelector) { document.querySelectorAll(`${containerSelector} .schedule-item[draggable="true"]`).forEach(item => item.addEventListener('dragstart', handleDragStart)); document.querySelectorAll(`${containerSelector} .drop-target`).forEach(target => { target.addEventListener('dragover', e => e.preventDefault()); target.addEventListener('dragenter', e => e.target.closest('.drop-target')?.classList.add('drag-over')); target.addEventListener('dragleave', e => e.target.closest('.drop-target')?.classList.remove('drag-over')); target.addEventListener('drop', handleDrop); }); }
-        function handleDragStart(e) { draggedItem = e.target.closest('.schedule-item'); setTimeout(() => { if(draggedItem) draggedItem.style.opacity = '0.5'; }, 0); }
-        
-        function addMemberViewDragDropListeners() {
-            document.querySelectorAll('#members-view-content .schedule-item[draggable="true"]').forEach(item => {
-                item.addEventListener('dragstart', handleDragStart);
-            });
-            document.querySelectorAll('#members-view-content .empty-slot').forEach(target => {
-                target.addEventListener('dragover', e => e.preventDefault());
-                target.addEventListener('dragenter', e => e.target.classList.add('drag-over'));
-                target.addEventListener('dragleave', e => e.target.classList.remove('drag-over'));
-                target.addEventListener('drop', handleMemberViewDrop);
-            });
-        }
-        
-        async function handleMemberViewDrop(e) {
-            e.preventDefault();
-            if (!draggedItem) return;
-
-            const targetCell = e.target.closest('.empty-slot');
-            draggedItem.style.opacity = '1';
-            targetCell.classList.remove('drag-over');
-
-            const dataType = draggedItem.dataset.type;
-            if (dataType !== 'activity') {
-                showToast("يمكن نقل الأنشطة المخصصة فقط في هذا العرض.", "error");
-                draggedItem = null;
-                return;
-            }
-            
-            const activityId = draggedItem.dataset.activityId;
-            const instructorId = draggedItem.dataset.instructorId;
-
-            const onclickAttr = targetCell.getAttribute('onclick');
-            const match = onclickAttr.match(/'([^']*)',\s*(\d+)/);
-            if (!match) {
-                draggedItem = null;
-                return;
-            }
-            const newDay = match[1];
-            const newTime = parseInt(match[2]);
-
-            const instructor = instructors.find(i => i.id === instructorId);
-            const activity = instructor.customActivities[activityId];
-
-            let isConflict = false;
-            for (let i = 0; i < activity.duration; i++) {
-                for (const levelName in savedSchedules) {
-                    const grid = savedSchedules[levelName];
-                    for (const loc in grid[newDay]?.[newTime + i] || {}) {
-                        if (grid[newDay][newTime + i][loc]?.instructor === instructor.name) {
-                            isConflict = true; break;
-                        }
-                    }
-                    if(isConflict) break;
-                }
-                if(isConflict) break;
-                for (const actId in instructor.customActivities) {
-                    if (actId === activityId) continue;
-                    const otherActivity = instructor.customActivities[actId];
-                    if (otherActivity.day === newDay && (newTime + i >= otherActivity.time && newTime + i < otherActivity.time + otherActivity.duration)) {
-                        isConflict = true; break;
-                    }
-                }
-                if(isConflict) break;
-            }
-
-            if (isConflict) {
-                showToast("لا يمكن النقل: يوجد تعارض في التوقيت.", "error");
-            } else {
-                const instructorRef = doc(db, instructorsCol.path, instructorId);
-                const updates = {};
-                updates[`customActivities.${activityId}.day`] = newDay;
-                updates[`customActivities.${activityId}.time`] = newTime;
-                await updateDoc(instructorRef, updates);
-                showToast("تم نقل النشاط بنجاح.");
-            }
-            
-            draggedItem = null;
-        }
-
-
-        async function handleDrop(e) {
-            e.preventDefault();
-            if (!draggedItem) return;
-
-            const targetCell = e.target.closest('.drop-target');
-            draggedItem.style.opacity = '1';
-
-            if (!targetCell) {
-                draggedItem = null;
-                return;
-            }
-            targetCell.classList.remove('drag-over');
-
-            const sourceInfo = {
-                id: draggedItem.dataset.courseId,
-                day: draggedItem.dataset.day,
-                time: parseInt(draggedItem.dataset.time),
-                location: draggedItem.dataset.location
-            };
-
-            const targetDay = targetCell.dataset.day;
-            const targetTime = parseInt(targetCell.dataset.time);
-            const targetItemElement = e.target.closest('.schedule-item');
-            
-            // Case 1: Drop onto another item
-            if (targetItemElement && targetItemElement !== draggedItem) {
-                 const targetInfo = {
-                    id: targetItemElement.dataset.courseId,
-                    day: targetItemElement.dataset.day,
-                    time: parseInt(targetItemElement.dataset.time),
-                    location: targetItemElement.dataset.location
-                };
-                
-                dropContext = { sourceInfo, targetInfo };
-
-                const selectedLevel = dom.levelFilterSelect.value;
-                const grid = savedSchedules[selectedLevel];
-                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-                if(sourceCourse) {
-                    const availableSlot = findEmptySlotAtTime(targetDay, targetTime, sourceCourse, grid);
-                    dom.dropActionModal.insertBtn.disabled = !availableSlot;
-                } else {
-                     dom.dropActionModal.insertBtn.disabled = true;
-                }
-
-                dom.dropActionModal.modal.style.display = 'block';
-
-            } 
-            // Case 2: Drop into an empty slot (move)
-            else {
-                const selectedLevel = dom.levelFilterSelect.value;
-                let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-                const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-
-                if (!sourceCourse) {
-                    showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
-                    draggedItem = null;
-                    return;
-                }
-                
-                // Find an available location of the correct type at the target time
-                const availableLocationsForDrop = locations.filter(loc => {
-                    if (loc.type !== sourceCourse.requiredLocationType) return false;
-                    let isFree = true;
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (grid[targetDay]?.[targetTime + i]?.[loc.name]) {
-                            isFree = false;
-                            break;
-                        }
-                    }
-                    return isFree;
-                });
-
-                const targetLocation = availableLocationsForDrop.length > 0 ? availableLocationsForDrop[0].name : null;
-
-
-                if (targetLocation) {
-                    // Perform the move: 1. Delete from old position
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (grid[sourceInfo.day]?.[sourceInfo.time + i]?.[sourceInfo.location]) {
-                            delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                        }
-                    }
-                    // 2. Add to new position
-                    for (let i = 0; i < sourceCourse.duration; i++) {
-                        if (!grid[targetDay]) grid[targetDay] = {};
-                        if (!grid[targetDay][targetTime + i]) grid[targetDay][targetTime + i] = {};
-                        grid[targetDay][targetTime + i][targetLocation] = { ...sourceCourse, isContinuation: i > 0 };
-                    }
-                    await saveScheduleToFirebase(selectedLevel, grid);
-                    showToast("تم نقل المقرر بنجاح!");
-                } else {
-                    showToast(`فشل النقل: لا يوجد مكان فارغ من نوع "${sourceCourse.requiredLocationType}" في هذا التوقيت.`, "error");
-                }
-            }
-            draggedItem = null;
-        }
-
-        function findEmptySlotAtTime(day, time, course, grid) {
-            const suitableLocations = locations.filter(l => l.type === course.requiredLocationType);
-            for (const loc of suitableLocations) {
-                let isFree = true;
-                for (let i = 0; i < course.duration; i++) {
-                    if (grid[day]?.[time + i]?.[loc.name]) {
-                        isFree = false;
-                        break;
-                    }
-                }
-                if (isFree) return loc.name;
-            }
-            return null;
-        }
-
-        async function handleSwapAction() {
-            if (!dropContext) return;
-            const { sourceInfo, targetInfo } = dropContext;
-            const selectedLevel = dom.levelFilterSelect.value;
-            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-            const targetCourse = grid[targetInfo.day]?.[targetInfo.time]?.[targetInfo.location];
-
-            if (!sourceCourse || !targetCourse) {
-                showToast("خطأ: لم يتم العثور على أحد المقررين.", "error");
-                closeDropModal();
-                return;
-            }
-
-            if (sourceCourse.duration !== targetCourse.duration) {
-                showToast("لا يمكن تبديل مقررين بمدة مختلفة.", "error");
-                closeDropModal();
-                return;
-            }
-
-            for (let i = 0; i < sourceCourse.duration; i++) {
-                delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                delete grid[targetInfo.day][targetInfo.time + i][targetInfo.location];
-            }
-            for (let i = 0; i < sourceCourse.duration; i++) {
-                grid[targetInfo.day][targetInfo.time + i][targetInfo.location] = { ...sourceCourse, isContinuation: i > 0 };
-                grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location] = { ...targetCourse, isContinuation: i > 0 };
-            }
-
-            await saveScheduleToFirebase(selectedLevel, grid);
-            showToast("تم التبديل بنجاح!");
-            closeDropModal();
-        }
-
-        async function handleInsertTogetherAction() {
-            if (!dropContext) return;
-            const { sourceInfo, targetInfo } = dropContext;
-            const selectedLevel = dom.levelFilterSelect.value;
-            let grid = JSON.parse(JSON.stringify(savedSchedules[selectedLevel]));
-
-            const sourceCourse = grid[sourceInfo.day]?.[sourceInfo.time]?.[sourceInfo.location];
-            if (!sourceCourse) {
-                showToast("خطأ: لم يتم العثور على المقرر المصدر.", "error");
-                closeDropModal();
-                return;
-            }
-            
-            const newLocation = findEmptySlotAtTime(targetInfo.day, targetInfo.time, sourceCourse, grid);
-
-            if (newLocation) {
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    delete grid[sourceInfo.day][sourceInfo.time + i][sourceInfo.location];
-                }
-                for (let i = 0; i < sourceCourse.duration; i++) {
-                    if (!grid[targetInfo.day]) grid[targetInfo.day] = {};
-                    if (!grid[targetInfo.day][targetInfo.time + i]) grid[targetInfo.day][targetInfo.time + i] = {};
-                    grid[targetInfo.day][targetInfo.time + i][newLocation] = { ...sourceCourse, isContinuation: i > 0 };
-                }
-
-                await saveScheduleToFirebase(selectedLevel, grid);
-                showToast("تم إدراج المقررين معًا بنجاح.");
-            } else {
-                showToast("لا يوجد مكان فارغ ومناسب في هذا التوقيت.", "error");
-            }
-            
-            closeDropModal();
-        }
-        
-        function closeDropModal() {
-            dom.dropActionModal.modal.style.display = 'none';
-            dropContext = null;
-            displaySchedule();
-        }
-
-
-        function handleSaveBackup() {
-            const dataToSave = { levels, subjects, instructors, locations, courses, groups, savedSchedules };
-            const blob = new Blob([JSON.stringify(dataToSave, null, 2)], {type: "application/json"});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-            a.download = `schedule_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(a.href);
-        }
-
-        function handleExportReport() {
-            let reportHtml = `
-<!DOCTYPE html>
-<html lang="ar" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <title>تقرير الجداول الدراسي</title>
-    <script src="https://cdn.tailwindcss.com"><\/script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Cairo', sans-serif; padding: 20px; }
-        .schedule-item { padding: 4px; border-radius: 6px; margin-bottom: 4px; color: #1f2937; box-shadow: 0 2px 4px rgba(0,0,0,0.05); line-height: 1.3; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .session-lab { border-left: 4px solid #14b8a6 !important; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; page-break-inside: auto; }
-        tr { page-break-inside: avoid; page-break-after: auto; }
-        thead { display: table-header-group; }
-        th, td { border: 1px solid #ccc; padding: 4px; text-align: center; font-size: 12px; }
-        th { background-color: #f2f2f2; }
-        h1, h2, h3, h4 { text-align: center; margin-top: 40px; margin-bottom: 20px; color: #333; page-break-after: avoid; }
-        .page-break { page-break-before: always; }
-        @media print {
-            #printBtn { display: none; }
-        }
-    </style>
-</head>
-<body>
-    <button id="printBtn" onclick="window.print()" style="position: fixed; top: 10px; left: 10px; padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; z-index: 100;">طباعة</button>
-    <h1>تقرير الجداول الدراسي الشامل</h1>
-    <p style="text-align: center; color: #666; margin-bottom: 40px;">تم إنشاؤه بتاريخ: ${new Date().toLocaleString('ar-EG')}</p>
-    `;
-
-            // Section 1: Level Schedules
-            reportHtml += '<div class="page-break"><h2>جداول الفرق الدراسية</h2></div>';
-            levels.forEach(level => {
-                if (savedSchedules[level.name]) {
-                    reportHtml += generateScheduleHTMLForLevel(level.name);
-                }
-            });
-
-            // Section 2: Location Schedules
-            reportHtml += '<div class="page-break"><h2>جداول الأماكن</h2></div>';
-            for (const type in LOCATION_TYPES) {
-                reportHtml += generateAggregatedLocationTableHtml(type, `جداول ${LOCATION_TYPES[type]}`);
-            }
-
-            // Section 3: Member Schedules
-            reportHtml += '<div class="page-break"><h2>جداول الأعضاء</h2></div>';
-            reportHtml += generateInstructorSchedulesHtml('', 'all', 'all');
-
-            reportHtml += '</body></html>';
-
-            const blob = new Blob([reportHtml], { type: "text/html;charset=utf-8" });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `report_schedules_${new Date().toISOString().slice(0,10)}.html`;
-            a.click();
-            URL.revokeObjectURL(a.href);
-        }
-
-        function generateScheduleHTMLForLevel(level) {
-            if (!level || !savedSchedules[level]) return '';
-
-            let gridForLevel = savedSchedules[level];
-
-            let tableHtml = `<div class="table-container my-8">
-                                <h3 class="text-2xl font-bold text-center mb-4 text-gray-700">الجدول الدراسي - ${level}</h3>`;
-            tableHtml += '<table class="w-full border-collapse">';
-            tableHtml += `<thead><tr class="bg-gray-200"><th class="p-2 border border-gray-300">اليوم</th>${TIME_SLOTS_HOURLY.map(time => `<th class="p-2 border border-gray-300 font-mono text-sm">${formatTimeSlot(time)}</th>`).join('')}</tr></thead><tbody>`;
-            
-            // Sort numerically/alphabetically
-            const sortedLocations = [...locations].sort((a,b) => a.name.localeCompare(b.name, 'ar', {numeric:true}));
-
-            DAYS.forEach(day => {
-                tableHtml += `<tr class="text-center"><td class="p-2 border border-gray-300 font-semibold align-middle bg-gray-50">${day}</td>`;
-                let time_cursor = 0;
-                while (time_cursor < TIME_SLOTS_HOURLY.length) {
-                    const time = TIME_SLOTS_HOURLY[time_cursor];
-                    let itemsInCell = sortedLocations.map(loc => ({ locName: loc.name, data: gridForLevel[day]?.[time]?.[loc.name] })).filter(item => item.data && !item.data.isContinuation);
-                    
-                    itemsInCell.sort((a, b) => {
-                        if (a.data.type === 'lecture' && b.data.type !== 'lecture') return -1;
-                        if (a.data.type !== 'lecture' && b.data.type === 'lecture') return 1;
-                        return 0;
-                    });
-                    
-                    if (itemsInCell.length > 0) {
-                        const maxDuration = Math.max(...itemsInCell.map(item => item.data.duration || 1));
-                        const containerClass = itemsInCell.length > 1 ? 'multi-item-container' : '';
-                        tableHtml += `<td class="p-1 border border-gray-300 align-top" colspan="${maxDuration}">`;
-                        tableHtml += `<div class="${containerClass} flex flex-col gap-1">`;
-                        itemsInCell.forEach(item => { 
-                            const { locName, data: cellData } = item; 
-                            const sessionClass = cellData.type === 'lab' ? 'session-lab' : '';
-                             if (cellData.type === 'custom_activity') {
-                                const bgColor = cellData.color || '#e5e7eb';
-                                tableHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor};"><p class="font-bold">${cellData.name}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`;
-                            } else {
-                                const bgColor = courseColors[cellData.baseName] || '#e5e7eb'; 
-                                const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc'); 
-                                tableHtml += `<div class="schedule-item text-[11px] ${sessionClass}" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};"><p class="font-bold">${cellData.name} ${cellData.groupName ? `(${cellData.groupName})` : ''}</p><p>${cellData.instructor}</p><p class="font-semibold text-gray-600">${locName}</p></div>`; 
+                        if (itemsInCell.length > 0) {
+                            hasClasses = true;
+                            const duration = itemsInCell[0].duration || 1;
+                            instructorTableHtml += `<td class="p-1 border align-top" colspan="${duration}"><div class="drop-target h-full member-drop-target" data-instructor="${instructor.name}" data-day="${day}" data-time="${time}">`;
+                            
+                            itemsInCell.forEach(cellData => {
+                                const bgColor = cellData.type === 'custom' ? '#e5e7eb' : (courseColors[cellData.baseName] || '#e5e7eb');
+                                const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc');
+                                
+                                let clickHandler = '';
+                                if (canEdit) {
+                                    if (cellData.type === 'custom') {
+                                        clickHandler = `window.openCustomActivityModal('${instructor.id}', '${day}', ${time}, '${cellData.id}')`;
+                                    } else {
+                                        clickHandler = `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${cellData.location}', '${cellData.level}')`;
+                                    }
+                                }
+                                
+                                instructorTableHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="${clickHandler}">`;
+                                instructorTableHtml += `<p class="font-bold">${cellData.name}</p>`;
+                                if(cellData.level) instructorTableHtml += `<p class="text-xs">${cellData.level}</p>`;
+                                if(cellData.location) instructorTableHtml += `<p class="font-semibold text-gray-600">${cellData.location}</p>`;
+                                instructorTableHtml += `</div>`;
+                            });
+                            
+                            instructorTableHtml += `</div></td>`;
+                            time_cursor += duration;
+                        } else {
+                            let isContinuation = false;
+                            for (const levelName in savedSchedules) {
+                                const grid = savedSchedules[levelName];
+                                for (const locName in grid[day]?.[time] || {}) {
+                                    if (grid[day][time][locName]?.instructor === instructor.name && grid[day][time][locName]?.isContinuation) {
+                                        isContinuation = true;
+                                        break;
+                                    }
+                                }
+                                if (isContinuation) break;
                             }
-                        });
-                        tableHtml += `</div></td>`;
-                        time_cursor += maxDuration;
-                    } else { 
-                        const isContinuationSlot = sortedLocations.some(loc => gridForLevel[day]?.[time]?.[loc.name]?.isContinuation); 
-                        if (!isContinuationSlot) { 
-                            tableHtml += `<td class="p-0 border border-gray-300 align-top h-20"></td>`; 
-                        } 
-                        time_cursor++; 
-                    }
-                }
-                tableHtml += `</tr>`;
-            });
-            tableHtml += '</tbody></table></div>';
-            return tableHtml;
-        }
+                            
+                            if (instructor.customActivities) {
+                                for(const actId in instructor.customActivities) {
+                                    const act = instructor.customActivities[actId];
+                                    if (act.day === day && time > act.time && time < act.time + act.duration) {
+                                        isContinuation = true;
+                                        break;
+                                    }
+                                }
+                            }
 
-        async function handleLoadScheduleFromFile(e) {
-            const file = e.target.files[0]; if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-                await showConfirmModal("سيؤدي هذا إلى حذف جميع بيانات القسم الحالي واستبدالها. هل أنت متأكد؟", async () => {
-                    try {
-                        await handleReset(false); // Clean current department first
-                        const data = JSON.parse(event.target.result);
-                        const batch = writeBatch(db);
-                        (data.levels || []).forEach(item => batch.set(doc(levelsCol), item));
-                        (data.groups || []).forEach(item => batch.set(doc(groupsCol), item));
-                        (data.subjects || []).forEach(item => batch.set(doc(subjectsCol), item));
-                        (data.instructors || []).forEach(item => batch.set(doc(instructorsCol), item));
-                        (data.locations || []).forEach(item => batch.set(doc(locationsCol), item));
-                        (data.courses || []).forEach(item => batch.set(doc(coursesCol), item));
-                        if (data.savedSchedules) { for (const level in data.savedSchedules) { batch.set(doc(schedulesCol, level), { grid: JSON.stringify(data.savedSchedules[level]) }); } }
-                        await batch.commit();
-                        showToast("تم استيراد البيانات للقسم بنجاح!");
-                    } catch (error) { console.error("Error loading file:", error); showToast("ملف غير صالح.", "error"); }
-                });
-            };
-            reader.readAsText(file); e.target.value = '';
-        }
-
-        async function handleReset(confirmed = false) {
-            // This function now ONLY RESETS data inside the CURRENT DEPARTMENT due to dynamic collections
-            if (!currentDepartmentId) return;
-
-            if(!confirmed) {
-                const batch = writeBatch(db);
-                const collections = [levelsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, groupsCol];
-                for (const col of collections) { const snapshot = await getDocs(query(col)); snapshot.docs.forEach(doc => batch.delete(doc.ref)); }
-                await batch.commit();
-                return;
-            }
-            const batch = writeBatch(db);
-            const collections = [levelsCol, subjectsCol, instructorsCol, locationsCol, coursesCol, schedulesCol, groupsCol];
-            for (const col of collections) { const snapshot = await getDocs(query(col)); snapshot.docs.forEach(doc => batch.delete(doc.ref)); }
-            await batch.commit();
-            scheduleGrid = {}; savedSchedules = {};
-            dom.scheduleOutput.innerHTML = ''; dom.unscheduledOutput.innerHTML = '';
-            dom.customScheduleOutput.innerHTML = '';
-            showToast("تم تهيئة جميع بيانات القسم والبدء من جديد.");
-        }
-
-        window.handleUpdateMaxConcurrentSections = async (levelId) => {
-             const inputElement = document.getElementById(`max-concurrent-${levelId}`);
-             if (!inputElement) return;
-             const value = inputElement.value;
-             const max = value === '' ? null : parseInt(value);
-             
-             const button = inputElement.nextElementSibling;
-             toggleButtonLoading(button, true);
-
-             try {
-                const levelRef = doc(db, levelsCol.path, levelId);
-                await updateDoc(levelRef, { maxConcurrentSections: max });
-                showToast("تم حفظ الحد الأقصى للسكاشن.");
-             } catch(error) {
-                console.error("Error updating max concurrent sections:", error);
-                showToast("حدث خطأ أثناء الحفظ.", "error");
-             } finally {
-                toggleButtonLoading(button, false);
-             }
-        };
-
-        function generateAdvancedLevelsHTML() {
-            const canEdit = userRole === 'admin';
-            const buttonsHtml = (l) => canEdit ? `<div class="w-full sm:w-auto flex flex-col sm:flex-row items-stretch sm:items-center gap-2"> <div class="flex-grow"> <label for="max-concurrent-${l.id}" class="text-xs font-bold text-gray-500">أقصى عدد سكاشن متزامنة</label> <div class="flex items-center gap-2 mt-1"> <input type="number" id="max-concurrent-${l.id}" min="1" placeholder="غير محدد" value="${l.maxConcurrentSections || ''}" class="w-24 p-2 border rounded-md"> <button onclick="window.handleUpdateMaxConcurrentSections('${l.id}')" class="bg-green-500 text-white font-bold p-2 px-3 rounded-md hover:bg-green-600 flex items-center justify-center"><i class="fas fa-save"></i></button> </div> </div> <div class="flex items-center gap-2 border-t sm:border-t-0 sm:border-r pt-2 sm:pt-0 sm:pr-4 mt-2 sm:mt-0"> <button onclick="window.openEditModal('level', '${l.id}')" title="تعديل اسم الفرقة" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('level', '${l.id}')" title="حذف الفرقة" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div> </div>` : '';
-
-            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للفرق الدراسية</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <input type="text" id="adv-level-search" placeholder="ابحث عن فرقة..." class="w-full p-3 border rounded-md mb-6"> <div id="adv-levels-list" class="space-y-4"> ${levels.map(l => ` <div class="list-item flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg shadow-sm gap-4" data-id="${l.id}"> <p class="font-semibold text-md">${l.name}</p> ${buttonsHtml(l)} </div> `).join('')} </div> </div> `;
-        }
-        function renderAdvancedInstructorsView(searchQuery = '', filterCategory = 'all') {
-            dom.advancedInstructorsView.innerHTML = generateAdvancedInstructorsHTML(searchQuery, filterCategory);
-            if(userRole === 'admin') {
-                document.getElementById('adv-instructor-search').addEventListener('input', (e) => { const currentCategory = document.querySelector('input[name="adv-category"]:checked').value; renderAdvancedInstructorsView(e.target.value, currentCategory); });
-                document.querySelectorAll('input[name="adv-category"]').forEach(radio => { radio.addEventListener('change', (e) => { const currentSearch = document.getElementById('adv-instructor-search').value; renderAdvancedInstructorsView(currentSearch, e.target.value); }); });
-                document.getElementById('adv-instructor-form').addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const nameInput = document.getElementById('adv-instructor-name-input');
-                    const name = nameInput.value.trim();
-                    if (name && !instructors.some(i => i.name === name)) {
-                        await handleAddWithLoading(e, instructorsCol, { name, category: document.getElementById('adv-instructor-category-select').value, availableTimes: {}, customActivities: {} }, "تمت إضافة العضو بنجاح!");
-                    } else { showToast("الاسم موجود بالفعل أو غير صالح.", "error"); }
-                });
-            }
-        }
-        window.handleUpdateInstructorCategory = async (instructorId) => {
-            if (userRole === 'guest') return;
-            const selectElement = document.getElementById(`category-select-${instructorId}`);
-            if (!selectElement) return;
-            const newCategory = selectElement.value;
-            const button = selectElement.nextElementSibling;
-            toggleButtonLoading(button, true);
-            try {
-                const instructorRef = doc(db, instructorsCol.path, instructorId);
-                await updateDoc(instructorRef, { category: newCategory });
-                showToast("تم تحديث فئة العضو بنجاح!");
-            } catch (error) {
-                console.error("Error updating category:", error);
-                showToast("حدث خطأ أثناء التحديث.", "error");
-            } finally {
-                toggleButtonLoading(button, false);
-            }
-        };
-        function getInstructorLoad(instructorName) {
-            const assignedCourses = []; const countedCourses = new Set(); let totalHours = 0;
-            for (const course of courses) {
-                if (course.instructor === instructorName) {
-                    const subject = subjects.find(s => s.name === course.baseName);
-                    if (subject) {
-                        const uniqueCourseId = course.id;
-                        if (!countedCourses.has(uniqueCourseId)) {
-                             assignedCourses.push({ name: course.name, level: subject.academicLevel, hours: course.duration });
-                            totalHours += course.duration;
-                            countedCourses.add(uniqueCourseId);
+                            if (!isContinuation) {
+                                instructorTableHtml += `<td class="p-0 border align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="drop-target h-full member-drop-target min-h-[50px]" data-instructor="${instructor.name}" data-day="${day}" data-time="${time}"></div></td>`;
+                            }
+                            time_cursor++;
                         }
                     }
+                    instructorTableHtml += `</tr>`;
+                });
+                instructorTableHtml += `</tbody></table></div>`;
+                
+                if (hasClasses || filterLevel === 'all') {
+                    html += instructorTableHtml;
                 }
-            }
-            return { courses: assignedCourses, totalHours };
-        }
-        function generateAdvancedInstructorsHTML(searchQuery = '', filterCategory = 'all') {
-            let filteredInstructors = instructors; 
-            // Sort Alphabetically here too
-            filteredInstructors.sort((a, b) => a.name.localeCompare(b.name, 'ar'));
+            });
 
-            if (searchQuery && typeof searchQuery === 'string') { filteredInstructors = filteredInstructors.filter(inst => inst.name.toLowerCase().includes(searchQuery.trim().toLowerCase())); } if (filterCategory !== 'all') { filteredInstructors = filteredInstructors.filter(inst => inst.category === filterCategory); }
-            const canEdit = userRole === 'admin';
-            const addInstructorForm = canEdit ? `<div class="md:col-span-2"> <form id="adv-instructor-form" class="p-4 border rounded-lg bg-gray-50 grid grid-cols-1 sm:grid-cols-3 gap-4 items-end"> <div class="sm:col-span-2 grid grid-cols-2 gap-4"> <div> <label class="font-bold text-sm">اسم العضو الجديد</label> <input type="text" id="adv-instructor-name-input" placeholder="اسم العضو" class="w-full p-2 border rounded-md mt-1" required> </div> <div> <label class="font-bold text-sm">الفئة</label> <select id="adv-instructor-category-select" class="w-full p-2 border rounded-md mt-1"> ${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}">${cat}</option>`).join('')} </select> </div> </div> <button type="submit" class="w-full bg-sky-500 text-white font-bold py-2 rounded-md hover:bg-sky-600 h-10 flex items-center justify-center">إضافة عضو</button> </form> </div>` : '<div class="md:col-span-2"></div>';
-
-            return ` <div class="bg-white p-6 rounded-xl shadow-lg"> <div class="flex justify-between items-center mb-6 border-b pb-4"> <h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للأعضاء</h2> <button onclick="window.showMainView()" class="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300"> <i class="fas fa-arrow-left ml-2"></i>العودة للرئيسية </button> </div> <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8"> ${addInstructorForm} <div class="p-4 border rounded-lg bg-gray-50"> <label class="font-bold text-sm">ابحث بالاسم...</label> <input type="text" id="adv-instructor-search" placeholder="بحث..." class="w-full p-2 border rounded-md mt-1" value="${searchQuery}"> </div> </div> <div class="mb-6 flex flex-wrap gap-4 justify-center"> <label class="flex items-center"><input type="radio" name="adv-category" value="all" class="ml-2" ${filterCategory === 'all' ? 'checked' : ''}> الكل</label> ${INSTRUCTOR_CATEGORIES.map(cat => `<label class="flex items-center"><input type="radio" name="adv-category" value="${cat}" class="ml-2" ${filterCategory === cat ? 'checked' : ''}> ${cat}</label>`).join('')} </div> <div id="adv-instructors-list" class="space-y-4"> ${filteredInstructors.length ? filteredInstructors.map(instructor => { const load = getInstructorLoad(instructor.name); const buttonsHtml = canEdit ? `<div class="flex items-center gap-2 mt-2"> <select id="category-select-${instructor.id}" class="p-1 border rounded-md text-sm bg-white">${INSTRUCTOR_CATEGORIES.map(cat => `<option value="${cat}" ${instructor.category === cat ? 'selected' : ''}>${cat}</option>`).join('')}</select> <button onclick="window.handleUpdateInstructorCategory('${instructor.id}')" class="bg-green-500 text-white font-bold py-1 px-3 rounded-md hover:bg-green-600 text-sm flex items-center justify-center">حفظ</button> </div>` : `<p class="text-sm text-gray-600 mt-2">${instructor.category}</p>`; const editDeleteButtons = canEdit ? `<div class="flex items-center gap-2"> <button onclick="window.openEditModal('instructor', '${instructor.id}')" class="text-blue-500 hover:text-blue-700 p-2"><i class="fas fa-pencil-alt fa-lg"></i></button> <button onclick="window.deleteItem('instructor', '${instructor.id}')" class="text-red-500 hover:text-red-700 p-2"><i class="fas fa-trash fa-lg"></i></button> </div>` : ''; return ` <div class="border rounded-lg overflow-hidden shadow-sm"> <div class="p-4 bg-gray-50 flex justify-between items-start"> <div> <h4 class="font-bold text-lg">${instructor.name}</h4> ${buttonsHtml} </div> ${editDeleteButtons} </div> <div class="p-4"> <h5 class="font-bold text-md mb-2 text-gray-700">المقررات المسندة:</h5> ${load.courses.length ? ` <table class="w-full text-sm text-right"> <thead class="bg-gray-100 text-gray-600"> <tr> <th class="p-2">اسم المقرر</th> <th class="p-2">الفرقة</th> </tr> </thead> <tbody> ${load.courses.map(c => ` <tr class="border-b"> <td class="p-2 font-semibold">${c.name}</td> <td class="p-2">${c.level}</td> </tr> `).join('')} </tbody> <tfoot> <tr class="font-bold bg-gray-50 border-t"> <td class="p-2">الإجمالي</td> <td class="p-2">${load.totalHours} ساعة</td> </tr> </tfoot> </table> ` : '<p class="text-center text-gray-500">لم يتم إسناد أي مقررات لهذا العضو بعد.</p>'} </div> </div> `; }).join('') : '<p class="text-center text-gray-500 mt-8">لا يوجد أعضاء مطابقون لمعايير البحث.</p>'} </div> </div> `;
-        }
-        function formatTimeSlot(startHour, duration = 1) { const endHour = startHour + duration; const format12 = (hour) => { const ampm = hour >= 12 && hour < 24 ? 'م' : 'ص'; const h = hour % 12 || 12; return `${h} ${ampm}`; }; if (duration === 1) { return `${format12(startHour)} - ${format12(endHour)}`; } return `${format12(startHour)} - ${format12(endHour)}`; }
-        function generateHslColor(str, asHex = false) {
-            let hash = 0; if (!str) return asHex ? '#e5e7eb' : 'hsl(0, 0%, 90%)';
-            for (let i = 0; i < str.length; i++) { hash = str.charCodeAt(i) + ((hash << 5) - hash); }
-            const h = hash % 360; const s = 75; const l = 85;
-            if (asHex) { let s_norm = s / 100; let l_norm = l / 100; let c = (1 - Math.abs(2 * l_norm - 1)) * s_norm, x = c * (1 - Math.abs((h / 60) % 2 - 1)), m = l_norm - c/2, r = 0, g = 0, b = 0; if (0 <= h && h < 60) { r = c; g = x; b = 0; } else if (60 <= h && h < 120) { r = x; g = c; b = 0; } else if (120 <= h && h < 180) { r = 0; g = c; b = x; } else if (180 <= h && h < 240) { r = 0; g = x; b = c; } else if (240 <= h && h < 300) { r = x; g = 0; b = c; } else if (300 <= h && h < 360) { r = c; g = 0; b = x; } r = Math.round((r + m) * 255).toString(16); g = Math.round((g + m) * 255).toString(16); b = Math.round((b + m) * 255).toString(16); if (r.length == 1) r = "0" + r; if (g.length == 1) g = "0" + g; if (b.length == 1) b = "0" + b; return `#${r}${g}${b}`; }
-            return `hsl(${h}, ${s}%, ${l}%)`;
+            return html;
         }
 
-        window.copyTableToClipboard = (button) => {
-            const tableContainer = button.closest('.table-container');
-            const table = tableContainer.querySelector('table');
-            if (!table) return;
+        function formatTimeSlot(time) {
+            if (time === 12) return "12:00 م";
+            if (time > 12) return `${time - 12}:00 م`;
+            return `${time}:00 ص`;
+        }
 
-            let tableText = '';
-            const rows = table.rows;
-            for (let i = 0; i < rows.length; i++) {
-                const row = rows[i];
-                let rowText = '';
-                for (let j = 0; j < row.cells.length; j++) {
-                    const cell = row.cells[j];
-                    let cellContent = cell.innerText.replace(/\s\s+/g, ' ').trim();
-                    rowText += cellContent + '\t'.repeat(cell.colSpan);
-                }
-                tableText += rowText.trim() + '\n';
-            }
+        function generateHslColor(str, isBorder = false) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+            const h = Math.abs(hash) % 360;
+            return `hsl(${h}, 70%, ${isBorder ? '60%' : '85%'})`;
+        }
 
-            const textArea = document.createElement('textarea');
-            textArea.value = tableText;
-            document.body.appendChild(textArea);
-            textArea.select();
+        window.copyTableToClipboard = (btn) => {
+            const container = btn.closest('.table-container');
+            const table = container.querySelector('table');
+            
+            const clone = table.cloneNode(true);
+            
+            const el = document.createElement('div');
+            el.appendChild(clone);
+            document.body.appendChild(el);
+            
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(el);
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
             try {
                 document.execCommand('copy');
-                showToast('تم نسخ الجدول بنجاح!');
+                showToast('تم نسخ الجدول للحافظة!');
             } catch (err) {
-                showToast('فشل نسخ الجدول.', 'error');
-            }
-            document.body.removeChild(textArea);
-        }
-
-        window.openLevelActivityModal = (day, time, locationNameForEdit = null, activityId = null, levelOverride = null) => {
-            if (userRole === 'guest') return;
-            const level = levelOverride || dom.levelFilterSelect.value;
-            if (!level || level === 'all') {
-                showToast('يرجى تحديد فرقة أولاً.', 'error');
-                return;
-            }
-            const modal = dom.levelActivityModal;
-            const grid = savedSchedules[level] || {};
-            const isEditMode = activityId !== null;
-
-            let activityData = null;
-            if (isEditMode) {
-                activityData = grid[day]?.[time]?.[locationNameForEdit];
-                if (!activityData || activityData.id !== activityId) {
-                    console.error("Activity not found for editing");
-                    showToast('خطأ: لم يتم العثور على النشاط.', 'error');
-                    return;
-                }
-                modal.title.textContent = `تعديل نشاط: ${activityData.name}`;
-            } else {
-                modal.title.textContent = `إضافة نشاط لـ: ${day} الساعة ${formatTimeSlot(time)}`;
-            }
-
-            modal.instructorSelect.innerHTML = '<option value="">(بدون عضو)</option>' + instructors.map(i => `<option value="${i.name}" ${isEditMode && i.name === activityData.instructor ? 'selected' : ''}>${i.name}</option>`).join('');
-
-            const duration = isEditMode ? activityData.duration : (parseInt(modal.durationInput.value) || 1);
-            const availableLocations = locations.filter(loc => {
-                if (isEditMode && loc.name === locationNameForEdit) return true;
-                for (let i = 0; i < duration; i++) {
-                    if (grid[day]?.[time + i]?.[loc.name]) return false;
-                }
-                return true;
-            });
-
-            if (availableLocations.length === 0 && !isEditMode) {
-                showToast('لا توجد أماكن فارغة في هذا التوقيت.', 'error');
-                return;
-            }
-            modal.locationSelect.innerHTML = '<option value="">(بدون مكان)</option>' + availableLocations.map(l => `<option value="${l.name}" ${isEditMode && l.name === locationNameForEdit ? 'selected' : ''}>${l.name} (${l.type})</option>`).join('');
-            
-            modal.nameInput.value = isEditMode ? activityData.name : '';
-            modal.durationInput.value = isEditMode ? activityData.duration : '1';
-            modal.durationInput.disabled = isEditMode;
-            modal.colorInput.value = isEditMode ? (activityData.color || '#a7f3d0') : '#a7f3d0';
-
-            modal.modal.style.display = 'block';
-
-            const deleteBtnId = 'level-activity-modal-delete-btn';
-            let deleteBtn = document.getElementById(deleteBtnId);
-            if (!deleteBtn) {
-                deleteBtn = document.createElement('button');
-                deleteBtn.id = deleteBtnId;
-                deleteBtn.className = 'w-full bg-red-500 text-white font-bold py-2 rounded-md hover:bg-red-600 mt-2';
-                modal.saveBtn.insertAdjacentElement('afterend', deleteBtn);
+                showToast('حدث خطأ أثناء النسخ', 'error');
             }
             
-            if (isEditMode) {
-                deleteBtn.textContent = 'حذف النشاط';
-                deleteBtn.style.display = 'block';
-                deleteBtn.onclick = () => handleDeleteLevelActivity(day, time, locationNameForEdit, activityId, level);
-            } else {
-                deleteBtn.style.display = 'none';
-            }
-
-            modal.saveBtn.onclick = () => handleSaveLevelActivity(day, time, level, isEditMode ? { id: activityId, location: locationNameForEdit } : null);
+            selection.removeAllRanges();
+            document.body.removeChild(el);
         };
 
-        async function handleSaveLevelActivity(day, time, level, editContext = null) {
-            const modal = dom.levelActivityModal;
-            const activityName = modal.nameInput.value.trim();
-            const instructorName = modal.instructorSelect.value;
-            const locationName = modal.locationSelect.value;
-            const color = modal.colorInput.value;
+        // Advanced Views Generators
+        function generateAdvancedLevelsHTML() {
+            let html = `<div class="bg-white p-6 rounded-xl shadow-md"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للفرق الدراسية</h2><button onclick="window.showMainView()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg"><i class="fas fa-arrow-right mr-2"></i>عودة للرئيسية</button></div>`;
+            html += `<input type="text" id="adv-level-search" placeholder="بحث عن فرقة..." class="w-full p-3 border rounded-lg mb-6 shadow-sm focus:ring-2 focus:ring-sky-500 outline-none">`;
+            html += `<div id="adv-levels-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
             
-            const isEditMode = editContext !== null;
+            levels.forEach(level => {
+                html += `<div class="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow bg-gray-50 flex flex-col justify-between h-full">`;
+                html += `<div><p class="font-bold text-lg text-sky-700 mb-2 border-b pb-2">${level.name}</p>`;
+                
+                const levelGroups = groups.filter(g => g.academicLevel === level.name);
+                html += `<p class="text-sm text-gray-600 mb-1"><strong>المجموعات:</strong> ${levelGroups.length > 0 ? levelGroups.map(g => g.name).join('، ') : 'لا يوجد'}</p>`;
+                
+                const levelSubjects = subjects.filter(s => s.academicLevel === level.name);
+                html += `<p class="text-sm text-gray-600 mb-4"><strong>المواد:</strong> ${levelSubjects.length > 0 ? levelSubjects.map(s => s.name).join('، ') : 'لا يوجد'}</p></div>`;
+                
+                html += `<div class="flex justify-end gap-2 mt-auto pt-4 border-t border-gray-200">
+                            <button onclick="window.openEditModal('level', '${level.id}')" class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-3 py-1 rounded text-sm font-semibold transition-colors"><i class="fas fa-edit mr-1"></i> تعديل</button>
+                            <button onclick="window.deleteItem('level', '${level.id}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded text-sm font-semibold transition-colors"><i class="fas fa-trash mr-1"></i> حذف</button>
+                        </div></div>`;
+            });
+            
+            html += `</div></div>`;
+            return html;
+        }
+
+        function renderAdvancedInstructorsView() {
+            let html = `<div class="bg-white p-6 rounded-xl shadow-md"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold text-gray-700">الإدارة المتقدمة للأعضاء</h2><button onclick="window.showMainView()" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg"><i class="fas fa-arrow-right mr-2"></i>عودة للرئيسية</button></div>`;
+            html += `<input type="text" id="adv-instructor-search" placeholder="بحث عن عضو..." class="w-full p-3 border rounded-lg mb-6 shadow-sm focus:ring-2 focus:ring-sky-500 outline-none">`;
+            html += `<div id="adv-instructors-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+            
+            instructors.sort((a,b) => a.name.localeCompare(b.name, 'ar')).forEach(instructor => {
+                html += `<div class="border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow bg-gray-50 flex flex-col justify-between h-full">`;
+                html += `<div><p class="font-bold text-lg text-sky-700 mb-2 border-b pb-2">${instructor.name}</p>`;
+                html += `<p class="text-sm text-gray-600 mb-4"><span class="inline-block bg-gray-200 rounded-full px-3 py-1 text-xs font-semibold text-gray-700 mr-2">${instructor.category}</span></p></div>`;
+                
+                html += `<div class="flex justify-end gap-2 mt-auto pt-4 border-t border-gray-200 flex-wrap">
+                            <button onclick="window.openAvailabilityModal('${instructor.id}')" class="bg-green-100 text-green-700 hover:bg-green-200 px-3 py-1 rounded text-sm font-semibold transition-colors flex-1"><i class="fas fa-clock mr-1"></i> التفرغ</button>
+                            <button onclick="window.openEditModal('instructor', '${instructor.id}')" class="bg-blue-100 text-blue-600 hover:bg-blue-200 px-3 py-1 rounded text-sm font-semibold transition-colors flex-1"><i class="fas fa-edit mr-1"></i> تعديل</button>
+                            <button onclick="window.deleteItem('instructor', '${instructor.id}')" class="bg-red-100 text-red-600 hover:bg-red-200 px-3 py-1 rounded text-sm font-semibold transition-colors flex-1"><i class="fas fa-trash mr-1"></i> حذف</button>
+                        </div></div>`;
+            });
+            
+            html += `</div></div>`;
+            dom.advancedInstructorsView.innerHTML = html;
+
+            document.getElementById('adv-instructor-search').addEventListener('input', (e) => {
+                const query = e.target.value.toLowerCase();
+                document.querySelectorAll('#adv-instructors-list > div').forEach(div => {
+                    const name = div.querySelector('p').textContent.toLowerCase();
+                    div.style.display = name.includes(query) ? 'flex' : 'none';
+                });
+            });
+        }
+
+        function addDragAndDropListeners(selector) {
+            // Placeholder for actual implementation if needed later
+        }
+
+        function addMemberViewDragDropListeners() {
+            // Placeholder for actual implementation if needed later
+        }
+
+        async function handleReset(force = false) {
+            if (userRole === 'guest') return;
+            const batch = writeBatch(db);
+            
+            const deleteCollection = async (colRef) => {
+                const snapshot = await getDocs(colRef);
+                snapshot.docs.forEach(doc => batch.delete(doc.ref));
+            };
+            
+            await deleteCollection(levelsCol);
+            await deleteCollection(groupsCol);
+            await deleteCollection(subjectsCol);
+            await deleteCollection(instructorsCol);
+            await deleteCollection(locationsCol);
+            await deleteCollection(coursesCol);
+            await deleteCollection(schedulesCol);
+            
+            await batch.commit();
+            showToast("تم تهيئة جميع بيانات القسم بنجاح!");
+        }
+        
+        function handleExportReport() {
+            const content = document.documentElement.outerHTML;
+            const blob = new Blob([content], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `تقرير_الجداول_${new Date().toISOString().split('T')[0]}.html`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function handleSaveBackup() {
+            const data = {
+                levels, groups, subjects, instructors, locations, courses, savedSchedules
+            };
+            const blob = new Blob([JSON.stringify(data)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        async function handleLoadScheduleFromFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    await handleReset(true);
+                    
+                    const batch = writeBatch(db);
+                    
+                    const restoreCollection = (colRef, items) => {
+                        items.forEach(item => {
+                            const docRef = doc(colRef, item.id);
+                            batch.set(docRef, item);
+                        });
+                    };
+                    
+                    restoreCollection(levelsCol, data.levels || []);
+                    restoreCollection(groupsCol, data.groups || []);
+                    restoreCollection(subjectsCol, data.subjects || []);
+                    restoreCollection(instructorsCol, data.instructors || []);
+                    restoreCollection(locationsCol, data.locations || []);
+                    restoreCollection(coursesCol, data.courses || []);
+                    
+                    for (const level in data.savedSchedules || {}) {
+                        const docRef = doc(schedulesCol, level);
+                        batch.set(docRef, { grid: JSON.stringify(data.savedSchedules[level]) });
+                    }
+                    
+                    await batch.commit();
+                    showToast('تم استيراد البيانات بنجاح!');
+                } catch (err) {
+                    console.error(err);
+                    showToast('حدث خطأ أثناء الاستيراد.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        window.openLevelActivityModal = (day, time, locationName = '', activityId = null) => {
+            const modal = dom.levelActivityModal;
+            modal.title.textContent = activityId ? 'تعديل نشاط' : 'إضافة نشاط للجدول';
+            modal.nameInput.value = '';
+            modal.durationInput.value = 1;
+            modal.colorInput.value = '#a7f3d0';
+            
+            const sortedInstructors = [...instructors].sort((a,b) => a.name.localeCompare(b.name, 'ar'));
+            modal.instructorSelect.innerHTML = '<option value="">(بدون عضو)</option>' + sortedInstructors.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+            
+            let locationOptions = '';
+            for(const type in LOCATION_TYPES) {
+                locationOptions += `<optgroup label="${LOCATION_TYPES[type]}">`;
+                const locationsOfType = locations.filter(l => l.type === type).sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
+                locationsOfType.forEach(loc => {
+                     locationOptions += `<option value="${loc.name}" ${loc.name === locationName ? 'selected' : ''}>${loc.name}</option>`;
+                });
+                locationOptions += `</optgroup>`;
+            }
+            modal.locationSelect.innerHTML = locationOptions;
+            
+            modal.modal.style.display = 'block';
+            
+            modal.saveBtn.onclick = () => saveLevelActivity(day, time, activityId);
+        };
+
+        async function saveLevelActivity(day, time, activityId) {
+            const activityName = dom.levelActivityModal.nameInput.value.trim();
+            const instructorName = dom.levelActivityModal.instructorSelect.value;
+            const locationName = dom.levelActivityModal.locationSelect.value;
+            const duration = parseInt(dom.levelActivityModal.durationInput.value);
+            const color = dom.levelActivityModal.colorInput.value;
+            const level = dom.levelFilterSelect.value;
+            
+            if (!activityName || !locationName) {
+                showToast("يرجى تحديد اسم النشاط والمكان.", "error");
+                return;
+            }
+            
             let grid = savedSchedules[level] ? JSON.parse(JSON.stringify(savedSchedules[level])) : {};
             
-            let duration = 1;
-            if (isEditMode) {
-                const oldActivity = grid[day]?.[time]?.[editContext.location];
-                if(oldActivity) duration = oldActivity.duration;
-            } else {
-                duration = parseInt(modal.durationInput.value);
-            }
-
-            if (!activityName || !locationName || !duration) {
-                showToast('يرجى ملء اسم النشاط والمكان والمدة.', 'error'); return;
-            }
-
-            if (isEditMode) {
-                for (let i = 0; i < duration; i++) {
-                    if(grid[day]?.[time+i]?.[editContext.location]) {
-                        delete grid[day][time + i][editContext.location];
-                    }
-                }
-            }
-
             for (let i = 0; i < duration; i++) {
                 if (grid[day]?.[time + i]?.[locationName]) {
-                    showToast('حدث تضارب. المكان تم حجزه أثناء إدخالك للبيانات.', 'error'); return;
+                    showToast("المكان مشغول في هذا الوقت!", "error");
+                    return;
                 }
             }
-
-            const activityData = {
-                id: isEditMode ? editContext.id : `activity_${Date.now()}`,
+            
+            const newActivity = {
+                id: activityId || `act_${Date.now()}`,
                 type: 'custom_activity',
                 name: activityName,
-                instructor: instructorName || 'غير محدد',
-                duration: duration,
-                baseName: activityName, 
-                color: color,
+                instructor: instructorName || '',
+                duration,
+                color,
+                baseName: activityName
             };
-
+            
             for (let i = 0; i < duration; i++) {
                 if (!grid[day]) grid[day] = {};
                 if (!grid[day][time + i]) grid[day][time + i] = {};
-                grid[day][time + i][locationName] = { ...activityData, isContinuation: i > 0 };
+                grid[day][time + i][locationName] = { ...newActivity, isContinuation: i > 0 };
             }
             
             await saveScheduleToFirebase(level, grid);
-            modal.modal.style.display = 'none';
-            showToast(isEditMode ? 'تم تعديل النشاط بنجاح!' : 'تم إضافة النشاط بنجاح!');
+            dom.levelActivityModal.modal.style.display = 'none';
+            showToast("تم حفظ النشاط بنجاح.");
         }
 
-        async function handleDeleteLevelActivity(day, time, locationName, activityId, level) {
-            await showConfirmModal("هل أنت متأكد من حذف هذا النشاط من الجدول؟", async () => {
-                let grid = JSON.parse(JSON.stringify(savedSchedules[level]));
-                const activity = grid[day]?.[time]?.[locationName];
-                if (activity && activity.id === activityId) {
-                    const duration = activity.duration;
-                    for (let i = 0; i < duration; i++) {
-                        if (grid[day]?.[parseInt(time) + i]?.[locationName]) {
-                            delete grid[day][parseInt(time) + i][locationName];
-                        }
-                    }
-                    await saveScheduleToFirebase(level, grid);
-                    showToast("تم حذف النشاط.");
-                    dom.levelActivityModal.modal.style.display = 'none';
-                } else {
-                    showToast("خطأ: لم يتم العثور على النشاط للحذف.", "error");
-                }
-            });
-        }
-
-        window.openLocationActivityModal = (locationName, day, time) => {
-            if (userRole === 'guest') return;
-
+        window.openLocationActivityModal = (locationName, day, time, activityId = null) => {
             const modal = dom.locationActivityModal;
-            modal.title.textContent = `إضافة نشاط في: ${locationName} - ${day} الساعة ${formatTimeSlot(time)}`;
-            
-            modal.levelSelect.innerHTML = '<option value="">(نشاط عام - غير مرتبط بفرقة)</option>' + levels.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
-            modal.instructorSelect.innerHTML = '<option value="">(بدون عضو)</option>' + instructors.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
-            
+            modal.title.textContent = activityId ? 'تعديل نشاط' : `إضافة نشاط لـ ${locationName}`;
             modal.nameInput.value = '';
-            modal.durationInput.value = '1';
+            modal.durationInput.value = 1;
             modal.colorInput.value = '#a7f3d0';
-
+            
+            const sortedInstructors = [...instructors].sort((a,b) => a.name.localeCompare(b.name, 'ar'));
+            modal.instructorSelect.innerHTML = '<option value="">(بدون عضو)</option>' + sortedInstructors.map(i => `<option value="${i.name}">${i.name}</option>`).join('');
+            
+            modal.levelSelect.innerHTML = '<option value="">(بدون فرقة / عام)</option>' + levels.map(l => `<option value="${l.name}">${l.name}</option>`).join('');
+            
             modal.modal.style.display = 'block';
-
-            modal.saveBtn.onclick = () => handleSaveLocationActivity(locationName, day, time);
+            
+            modal.saveBtn.onclick = () => saveLocationActivity(locationName, day, time, activityId);
         };
 
-        async function handleSaveLocationActivity(locationName, day, time) {
+        async function saveLocationActivity(locationName, day, time, activityId) {
             const modal = dom.locationActivityModal;
-            const level = modal.levelSelect.value;
             const activityName = modal.nameInput.value.trim();
             const instructorName = modal.instructorSelect.value;
+            const levelName = modal.levelSelect.value;
             const duration = parseInt(modal.durationInput.value);
             const color = modal.colorInput.value;
-
-            if (!activityName || !duration) {
-                showToast('يرجى ملء اسم النشاط والمدة.', 'error');
+            
+            if (!activityName) {
+                showToast("يرجى إدخال اسم النشاط.", "error");
                 return;
             }
-
-            // Comprehensive conflict check
-            // 1. Check against all level schedules (including general_activities)
-            for (const levelName in savedSchedules) {
-                const grid = savedSchedules[levelName];
-                for (let i = 0; i < duration; i++) {
-                    if (grid[day]?.[time + i]?.[locationName]) {
-                        showToast(`المكان مشغول بنشاط آخر في جدول ${levelName === 'general_activities' ? 'الأنشطة العامة' : `فرقة ${levelName}`}`, 'error');
-                        return;
-                    }
-                }
-            }
-            // 2. Check against all instructor custom activities
-            for (const instructor of instructors) {
-                for (const activityId in instructor.customActivities || {}) {
-                    const activity = instructor.customActivities[activityId];
-                    if (activity.location === locationName && activity.day === day && (time < activity.time + activity.duration && activity.time < time + duration)) {
-                        showToast(`المكان مشغول بنشاط للعضو: ${instructor.name}`, 'error');
-                        return;
-                    }
-                }
-            }
-
+            
             const activityData = {
-                id: `activity_${Date.now()}`,
+                id: activityId || `act_${Date.now()}`,
                 type: 'custom_activity',
                 name: activityName,
-                instructor: instructorName || 'غير محدد',
-                duration: duration,
-                baseName: activityName,
-                color: color,
+                instructor: instructorName,
+                duration,
+                color,
+                baseName: activityName
             };
-
-            if (level) {
-                let grid = savedSchedules[level] ? JSON.parse(JSON.stringify(savedSchedules[level])) : {};
+            
+            if (levelName) {
+                let grid = savedSchedules[levelName] ? JSON.parse(JSON.stringify(savedSchedules[levelName])) : {};
                 for (let i = 0; i < duration; i++) {
                     if (!grid[day]) grid[day] = {};
                     if (!grid[day][time + i]) grid[day][time + i] = {};
                     grid[day][time + i][locationName] = { ...activityData, isContinuation: i > 0 };
                 }
-                await saveScheduleToFirebase(level, grid);
+                await saveScheduleToFirebase(levelName, grid);
                 modal.modal.style.display = 'none';
-                showToast('تم إضافة النشاط للفرقة بنجاح!');
+                showToast(`تم إضافة النشاط لجدول فرقة ${levelName}`);
+                displayLocationSchedules(); // refresh view
+                
             } else if (instructorName) {
                 const instructor = instructors.find(i => i.name === instructorName);
                 if (!instructor) {
@@ -3568,7 +3282,8 @@
                 await updateDoc(instructorRef, { [key]: customActivityData });
                 modal.modal.style.display = 'none';
                 showToast("تم حفظ النشاط كنشاط شخصي للعضو.");
-            } else { // No level, no instructor -> Truly general activity
+                displayLocationSchedules(); // refresh view
+            } else { // Truly general activity
                 let grid = savedSchedules['general_activities'] ? JSON.parse(JSON.stringify(savedSchedules['general_activities'])) : {};
                 for (let i = 0; i < duration; i++) {
                     if (!grid[day]) grid[day] = {};
@@ -3578,6 +3293,7 @@
                 await saveScheduleToFirebase('general_activities', grid);
                 modal.modal.style.display = 'none';
                 showToast('تم إضافة النشاط العام بنجاح!');
+                displayLocationSchedules(); // refresh view
             }
         }
     </script>
