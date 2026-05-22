@@ -2778,111 +2778,106 @@ function updateDepartmentButtons() {
         }
 
         function generateAggregatedLocationTableHtml(filterType, mainTitle) {
-    const filteredItems = locations
-        .filter(l => l.type === filterType)
-        .sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
+            // NEW: Sort locations numerically and alphabetically
+            const filteredItems = locations
+                .filter(l => l.type === filterType)
+                .sort((a, b) => a.name.localeCompare(b.name, 'ar', { numeric: true }));
 
-    if (!filteredItems.length) return '';
+            if (!filteredItems.length) return '';
+        
+            let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
+            
+            let locationGrid = {};
+            locations.forEach(loc => {
+                locationGrid[loc.name] = {};
+                DAYS.forEach(d => {
+                    locationGrid[loc.name][d] = {};
+                    TIME_SLOTS_HOURLY.forEach(t => locationGrid[loc.name][d][t] = []);
+                });
+            });
 
-    let allHtml = `<div class="mb-10"><h3 class="text-2xl font-bold text-center mb-4 text-cyan-700">${mainTitle}</h3>`;
-    
-    let locationGrid = {};
-    locations.forEach(loc => {
-        locationGrid[loc.name] = {};
-        DAYS.forEach(d => {
-            locationGrid[loc.name][d] = {};
-            TIME_SLOTS_HOURLY.forEach(t => locationGrid[loc.name][d][t] = []);
-        });
-    });
-
-    for (const levelName in savedSchedules) {
-        const grid = savedSchedules[levelName];
-        for (const day in grid) {
-            for (const time in grid[day]) {
-                for (const locName in grid[day][time]) {
-                    const cell = grid[day][time][locName];
-                    if (cell && locationGrid[locName]) { 
-                        locationGrid[locName][day][parseInt(time)].push({ ...cell, level: levelName });
+            for (const levelName in savedSchedules) {
+                const grid = savedSchedules[levelName];
+                for (const day in grid) {
+                    for (const time in grid[day]) {
+                        for (const locName in grid[day][time]) {
+                            const cell = grid[day][time][locName];
+                            if (cell && locationGrid[locName]) { 
+                                locationGrid[locName][day][parseInt(time)].push({ ...cell, level: levelName });
+                            }
+                        }
                     }
                 }
             }
-        }
-    }
 
-    instructors.forEach(instructor => {
-        const customActivities = instructor.customActivities || {};
-        for (const activityId in customActivities) {
-            const activity = customActivities[activityId];
-            if (activity.location && locationGrid[activity.location]) {
-                if (locationGrid[activity.location][activity.day] && locationGrid[activity.location][activity.day][activity.time]) {
-                    locationGrid[activity.location][activity.day][activity.time].push({
-                        id: activityId,
-                        type: 'custom',
-                        name: activity.text,
-                        instructor: instructor.name,
-                        level: '',
-                        ...activity
-                    });
-                }
-            }
-        }
-    });
-
-    filteredItems.forEach(item => {
-        allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
-        allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
-        
-        const currentLocGrid = locationGrid[item.name];
-        const canEdit = userRole === 'admin';
-
-        DAYS.forEach(day => {
-            allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
-            let time_cursor = 0;
-            while (time_cursor < TIME_SLOTS_HOURLY.length) {
-                const time = TIME_SLOTS_HOURLY[time_cursor];
-                const cellItems = currentLocGrid[day][time] || [];
-                
-                if (cellItems.length > 0) {
-                    const duration = Math.max(...cellItems.map(item => item.duration || 1));
-                    
-                    allHtml += `<td class="p-1 border align-top" colspan="${duration}">`;
-                    allHtml += `<div class="flex flex-col gap-1 h-full min-h-[50px]">`;
-
-                    cellItems.forEach(cellData => {
-                        const bgColor = cellData.type === 'custom' ? (cellData.color || '#e5e7eb') : (courseColors[cellData.baseName] || '#e5e7eb');
-                        const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc');
-                        
-                        let itemClickHandler = '';
-                        if (canEdit) {
-                            if (cellData.type === 'custom') {
-                                itemClickHandler = `window.openLocationActivityModal('${item.name}', '${day}', ${time}, '${cellData.id}')`;
-                            } else {
-                                itemClickHandler = `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')`;
-                            }
+            instructors.forEach(instructor => {
+                const customActivities = instructor.customActivities || {};
+                for (const activityId in customActivities) {
+                    const activity = customActivities[activityId];
+                    if (activity.location && locationGrid[activity.location]) {
+                        if (locationGrid[activity.location][activity.day] && locationGrid[activity.location][activity.day][activity.time]) {
+                            locationGrid[activity.location][activity.day][activity.time].push({
+                                id: activityId,
+                                type: 'custom',
+                                name: activity.text,
+                                instructor: instructor.name,
+                                level: '',
+                                ...activity
+                            });
                         }
-
-                        allHtml += `<div class="schedule-item text-[11px] w-full" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="${itemClickHandler}">`;
-                        allHtml += `<p class="font-bold">${cellData.name}</p>`;
-                        if(cellData.instructor) allHtml += `<p>${cellData.instructor}</p>`;
-                        if(cellData.level) allHtml += `<p class="font-bold text-gray-800 bg-white/40 inline-block px-1 rounded mt-1">${cellData.level}</p>`;
-                        allHtml += `</div>`;
-                    });
-
-                    allHtml += `</div></td>`;
-                    time_cursor += duration;
-                } else {
-                    const addActivityClickHandler = canEdit ? `window.openLocationActivityModal('${item.name}', '${day}', ${time})` : '';
-                    allHtml += `<td class="p-0 border align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="h-full min-h-[50px]"></div></td>`;
-                    time_cursor++;
+                    }
                 }
-            }
-            allHtml += `</tr>`;
-        });
-        allHtml += `</tbody></table></div>`;
-    });
-    
-    return allHtml;
-}
+            });
+
+            filteredItems.forEach(item => {
+                allHtml += `<div class="mb-8 bg-white p-4 sm:p-6 rounded-xl shadow-lg table-container"><button onclick="window.copyTableToClipboard(this)" title="نسخ الجدول" class="copy-btn print-hidden"><i class="fas fa-copy"></i></button><h4 class="text-xl font-bold text-center mb-4 text-cyan-600">${item.name}</h4>`;
+                allHtml += `<table class="w-full border-collapse"><thead><tr class="bg-gray-200"><th class="p-2 border">اليوم</th>${TIME_SLOTS_HOURLY.map(t => `<th class="p-2 border font-mono text-sm">${formatTimeSlot(t)}</th>`).join('')}</tr></thead><tbody>`;
+                
+                const currentLocGrid = locationGrid[item.name];
+                const canEdit = userRole === 'admin';
+
+                DAYS.forEach(day => {
+                    allHtml += `<tr class="text-center"><td class="p-2 border font-semibold align-middle bg-gray-50">${day}</td>`;
+                    let time_cursor = 0;
+                    while (time_cursor < TIME_SLOTS_HOURLY.length) {
+                        const time = TIME_SLOTS_HOURLY[time_cursor];
+                        const cellItems = currentLocGrid[day][time] || [];
+                        
+                        if (cellItems.length > 0) {
+                            const cellData = cellItems[0];
+                            const duration = cellData.duration || 1;
+                            const bgColor = cellData.type === 'custom' ? (cellData.color || '#e5e7eb') : (courseColors[cellData.baseName] || '#e5e7eb');
+                            const borderColor = cellData.type === 'lecture' ? '#f59e0b' : (courseColors[cellData.baseName] ? courseColors[cellData.baseName].replace('85%', '60%') : '#cccccc');
+                            
+                            let itemClickHandler = '';
+                            if (canEdit) {
+                                if (cellData.type === 'custom') {
+                                    itemClickHandler = `window.openLocationActivityModal('${item.name}', '${day}', ${time}, '${cellData.id}')`;
+                                } else {
+                                    itemClickHandler = `window.openScheduleItemModal('${cellData.id}', '${day}', ${time}, '${item.name}', '${cellData.level}')`;
+                                }
+                            }
+
+                            allHtml += `<td class="p-1 border align-top" colspan="${duration}">`;
+                            allHtml += `<div class="schedule-item text-[11px]" style="background-color: ${bgColor}; border-left: 4px solid ${borderColor};" onclick="${itemClickHandler}">`;
+                            allHtml += `<p class="font-bold">${cellData.name}</p>`;
+                            if(cellData.instructor) allHtml += `<p>${cellData.instructor}</p>`;
+                            if(cellData.level) allHtml += `<p class="font-semibold text-gray-600">${cellData.level}</p>`;
+                            allHtml += `</div></td>`;
+                            time_cursor += duration;
+                        } else {
+                            const addActivityClickHandler = canEdit ? `window.openLocationActivityModal('${item.name}', '${day}', ${time})` : '';
+                            allHtml += `<td class="p-0 border align-top empty-slot hover:bg-green-50" onclick="${addActivityClickHandler}"><div class="h-full min-h-[50px]"></div></td>`;
+                            time_cursor++;
+                        }
+                    }
+                    allHtml += `</tr>`;
+                });
+                allHtml += `</tbody></table></div>`;
+            });
+            
+            return allHtml;
+        }
 
         function generateInstructorSchedulesHtml(searchQuery, filterCategory, filterLevel) {
             let html = '';
